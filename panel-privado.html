@@ -93,6 +93,19 @@
         <button class="tab-btn" data-status="paid">Pagadas</button>
         <button class="tab-btn" data-status="cancelled">Canceladas</button>
       </div>
+      <div class="row" style="margin-bottom:16px; align-items:flex-end;">
+        <div>
+          <label for="exportFrom">Desde</label>
+          <input type="date" id="exportFrom" style="margin-bottom:0;">
+        </div>
+        <div>
+          <label for="exportTo">Hasta</label>
+          <input type="date" id="exportTo" style="margin-bottom:0;">
+        </div>
+        <button class="secondary" id="exportCsvBtn">Descargar CSV</button>
+        <span class="sub" style="margin:0;">Vacío en ambas fechas = descarga todas las solicitudes.</span>
+      </div>
+      <div id="exportMsg"></div>
       <div id="ordersMsg"></div>
       <table>
         <thead>
@@ -392,6 +405,66 @@
     if (failed) { showMsg(msgEl, 'Error guardando: ' + failed.message, 'error'); return; }
     showMsg(msgEl, 'Inventario actualizado.', 'ok');
     loadInventory();
+  });
+
+  // ---- Descargar CSV (conciliación bancaria) ----
+  const DEPOSIT_RATIO = 0.5; // debe coincidir con v_deposit_ratio en create_purchase_request
+
+  function csvEscape(value) {
+    const s = String(value ?? '');
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  document.getElementById('exportCsvBtn').addEventListener('click', async () => {
+    const exportMsg = document.getElementById('exportMsg');
+    const fromVal = document.getElementById('exportFrom').value;
+    const toVal = document.getElementById('exportTo').value;
+    showMsg(exportMsg, '', null);
+
+    let query = client
+      .from('orders')
+      .select('order_number, status, total_reference, payment_mode, created_at, paid_at')
+      .order('created_at', { ascending: true });
+
+    if (fromVal) query = query.gte('created_at', fromVal + 'T00:00:00');
+    if (toVal) query = query.lte('created_at', toVal + 'T23:59:59');
+
+    const { data, error } = await query;
+    if (error) { showMsg(exportMsg, 'Error generando el archivo: ' + error.message, 'error'); return; }
+    if (!data.length) { showMsg(exportMsg, 'No hay solicitudes en ese rango de fechas.', 'error'); return; }
+
+    const statusLabel = { pending: 'Pendiente', paid: 'Pagada', cancelled: 'Cancelada' };
+    const paymentLabel = { full: 'Pago completo', deposit: 'Abono 50%' };
+
+    const headers = ['Código', 'Estado', 'Forma de pago', 'Total de la prenda', 'Monto a cobrar', 'Fecha de creación', 'Fecha de pago'];
+    const rows = data.map(o => {
+      const total = Number(o.total_reference);
+      const amountDue = o.payment_mode === 'deposit' ? Math.round(total * DEPOSIT_RATIO * 100) / 100 : total;
+      return [
+        o.order_number,
+        statusLabel[o.status] || o.status,
+        paymentLabel[o.payment_mode] || o.payment_mode,
+        total.toFixed(2),
+        amountDue.toFixed(2),
+        new Date(o.created_at).toLocaleString('es-PA'),
+        o.paid_at ? new Date(o.paid_at).toLocaleString('es-PA') : ''
+      ];
+    });
+
+    const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `primedrop-solicitudes-${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    showMsg(exportMsg, `Descargado: ${data.length} solicitud(es).`, 'ok');
   });
 
   if (client) checkSession();
