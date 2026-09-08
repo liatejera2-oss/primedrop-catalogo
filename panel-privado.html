@@ -158,14 +158,19 @@
     return `<span class="badge badge-${mode === 'deposit' ? 'deposit' : 'full'}">${label}</span>`;
   }
 
-  async function checkSession() {
-    const { data: { session } } = await client.auth.getSession();
+  async function checkSession(providedSession) {
+    let session = providedSession;
+    if (!session) {
+      const result = await client.auth.getSession();
+      session = result.data.session;
+    }
     if (!session) { showLogin(); return; }
 
     // Verifica que el usuario autenticado esté en la tabla admins
     // (RLS hará cumplir esto en cada consulta, pero lo chequeamos aquí
     // también para no mostrarle el panel a alguien sin permisos).
     const { data: adminRow, error } = await client.from('admins').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    if (error) console.error('[Prime Drop] Error verificando permisos de admin:', error);
     if (error || !adminRow) {
       showMsg(loginMsg, 'Tu cuenta no tiene permisos de administrador. Pide que te agreguen a la tabla "admins" en Supabase.', 'error');
       await client.auth.signOut();
@@ -190,9 +195,12 @@
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     showMsg(loginMsg, '', null);
-    const { error } = await client.auth.signInWithPassword({ email, password });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error) { showMsg(loginMsg, error.message, 'error'); return; }
-    checkSession();
+    // Usa la sesión que el login acaba de devolver directamente, en vez de
+    // volver a preguntarle a getSession() de inmediato — evita una posible
+    // condición de carrera justo después de iniciar sesión.
+    checkSession(data.session);
   });
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
