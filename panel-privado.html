@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Prime Drop — Panel privado</title>
+<style>
+  :root {
+    --bg: #FEFEFE; --bg-alt: #F3F4F4; --ink: #262626; --ink-soft: #6B7078;
+    --accent: #C2101B; --line: #E7E7E9; --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--ink); padding: 24px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 24px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+  label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+  input[type="email"], input[type="password"], input[type="text"], input[type="number"] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-family: inherit; font-size: 14px; margin-bottom: 14px;
+  }
+  button { font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; border-radius: 999px; border: none; padding: 10px 18px; background: var(--ink); color: #fff; transition: background .15s ease; }
+  button:hover { background: #000; }
+  button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.secondary:hover { background: var(--bg-alt); }
+  button.danger { background: var(--accent); }
+  button:disabled { background: var(--ink-soft); cursor: not-allowed; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+  .badge-pending { background: #FFF3D6; color: #8A6300; }
+  .badge-paid { background: #DFF3E3; color: #1E7A34; }
+  .badge-cancelled { background: #F1F1F1; color: var(--ink-soft); }
+  .msg { font-size: 13px; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; }
+  .msg-error { background: #FBEAEA; color: var(--accent); }
+  .msg-ok { background: #DFF3E3; color: #1E7A34; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .tab-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .hidden { display: none !important; }
+  .stock-input { width: 70px; padding: 6px 8px; margin-bottom: 0; }
+  .low-stock { color: var(--accent); font-weight: 600; }
+  #configWarning { background: #FBEAEA; color: var(--accent); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prime Drop — Panel privado</h1>
+  <p class="sub">Solicitudes, inventario y confirmación de pagos. Acceso restringido a administradores.</p>
+
+  <div id="configWarning" class="hidden">
+    Configura SUPABASE_URL y SUPABASE_ANON_KEY en el bloque ADMIN_CONFIG dentro del &lt;script&gt; de este archivo.
+  </div>
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <h2>Iniciar sesión</h2>
+    <div id="loginMsg"></div>
+    <label for="loginEmail">Correo</label>
+    <input type="email" id="loginEmail" autocomplete="username">
+    <label for="loginPassword">Contraseña</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <button id="loginBtn">Entrar</button>
+  </div>
+
+  <!-- PANEL (oculto hasta iniciar sesión como admin) -->
+  <div id="panel" class="hidden">
+    <div class="row" style="justify-content: space-between; margin-bottom: 20px;">
+      <p class="sub" id="sessionInfo" style="margin:0;"></p>
+      <button class="secondary" id="logoutBtn">Cerrar sesión</button>
+    </div>
+
+    <div class="card">
+      <h2>Buscar solicitud por código</h2>
+      <div class="row">
+        <input type="text" id="searchCode" placeholder="PD-2026-0001" style="max-width:220px; margin-bottom:0;">
+        <button class="secondary" id="searchBtn">Buscar</button>
+      </div>
+      <div id="searchResult" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Solicitudes</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-status="pending">Pendientes</button>
+        <button class="tab-btn" data-status="paid">Pagadas</button>
+        <button class="tab-btn" data-status="cancelled">Canceladas</button>
+      </div>
+      <div id="ordersMsg"></div>
+      <table>
+        <thead>
+          <tr><th>Código</th><th>Total</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Inventario por producto</h2>
+      <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago.</p>
+      <div id="inventoryMsg"></div>
+      <table>
+        <thead>
+          <tr><th>Producto</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody id="inventoryBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // 1) Ve a tu proyecto en supabase.com → Ajustes → Integraciones → API de
+  //    datos (Project URL) y Ajustes → Claves API ("Clave publicable"
+  //    sb_publishable_..., o "anon public" en el sistema de claves viejo).
+  // 2) Copia el Project URL en SUPABASE_URL y la clave pública en
+  //    SUPABASE_ANON_KEY (la MISMA que usas en PRIMEDROP_CATALOGO.html).
+  //    Este panel nunca debe usar la "service_role" key: la sesión de
+  //    Supabase Auth + las políticas RLS (is_admin()) son las que dan
+  //    los permisos reales, no la clave.
+  const ADMIN_CONFIG = {
+    SUPABASE_URL: 'https://uoyrktrxymvdiwzgqtgs.supabase.co',
+    SUPABASE_ANON_KEY: 'sb_publishable_5M4Mnf9FnIqs-SlRVOwYrw_mw3S89hM'
+  };
+
+  const configured = !ADMIN_CONFIG.SUPABASE_URL.startsWith('REEMPLAZA') && !ADMIN_CONFIG.SUPABASE_ANON_KEY.startsWith('REEMPLAZA');
+  if (!configured) document.getElementById('configWarning').classList.remove('hidden');
+
+  const client = configured ? window.supabase.createClient(ADMIN_CONFIG.SUPABASE_URL, ADMIN_CONFIG.SUPABASE_ANON_KEY) : null;
+
+  const loginCard = document.getElementById('loginCard');
+  const panel = document.getElementById('panel');
+  const loginMsg = document.getElementById('loginMsg');
+  const sessionInfo = document.getElementById('sessionInfo');
+  const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+
+  function showMsg(el, text, type) {
+    el.innerHTML = text ? `<p class="msg msg-${type}">${text}</p>` : '';
+  }
+
+  function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
+
+  function badgeFor(status) {
+    const label = status === 'pending' ? 'Pendiente' : status === 'paid' ? 'Pagada' : 'Cancelada';
+    return `<span class="badge badge-${status}">${label}</span>`;
+  }
+
+  async function checkSession() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) { showLogin(); return; }
+
+    // Verifica que el usuario autenticado esté en la tabla admins
+    // (RLS hará cumplir esto en cada consulta, pero lo chequeamos aquí
+    // también para no mostrarle el panel a alguien sin permisos).
+    const { data: adminRow, error } = await client.from('admins').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    if (error || !adminRow) {
+      showMsg(loginMsg, 'Tu cuenta no tiene permisos de administrador. Pide que te agreguen a la tabla "admins" en Supabase.', 'error');
+      await client.auth.signOut();
+      showLogin();
+      return;
+    }
+
+    sessionInfo.textContent = `Sesión: ${session.user.email}`;
+    loginCard.classList.add('hidden');
+    panel.classList.remove('hidden');
+    loadOrders('pending');
+    loadInventory();
+  }
+
+  function showLogin() {
+    loginCard.classList.remove('hidden');
+    panel.classList.add('hidden');
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    if (!client) return;
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    showMsg(loginMsg, '', null);
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) { showMsg(loginMsg, error.message, 'error'); return; }
+    checkSession();
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await client.auth.signOut();
+    showLogin();
+  });
+
+  // ---- Solicitudes ----
+  let activeStatus = 'pending';
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeStatus = btn.dataset.status;
+      loadOrders(activeStatus);
+    });
+  });
+
+  async function loadOrders(status) {
+    const ordersMsg = document.getElementById('ordersMsg');
+    const tbody = document.getElementById('ordersBody');
+    tbody.innerHTML = '';
+    showMsg(ordersMsg, '', null);
+
+    const { data, error } = await client
+      .from('orders')
+      .select('id, order_number, status, total_reference, created_at')
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+
+    if (error) { showMsg(ordersMsg, 'Error cargando solicitudes: ' + error.message, 'error'); return; }
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--ink-soft);">Sin solicitudes en este estado.</td></tr>'; return; }
+
+    data.forEach(o => tbody.appendChild(orderRow(o)));
+  }
+
+  function orderRow(o) {
+    const tr = document.createElement('tr');
+    const created = new Date(o.created_at).toLocaleString('es-PA');
+    let actions = '';
+    if (o.status === 'pending') {
+      actions = `<button data-action="pay" data-id="${o.id}">Marcar pagada</button>
+                 <button class="danger" data-action="cancel" data-id="${o.id}">Cancelar</button>`;
+    }
+    tr.innerHTML = `
+      <td>${o.order_number}</td>
+      <td>${moneyFmt(o.total_reference)}</td>
+      <td>${created}</td>
+      <td>${badgeFor(o.status)}</td>
+      <td>${actions}</td>
+    `;
+    return tr;
+  }
+
+  document.getElementById('ordersBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const ordersMsg = document.getElementById('ordersMsg');
+    btn.disabled = true;
+
+    const rpcName = action === 'pay' ? 'confirm_order_payment' : 'cancel_order';
+    const { data, error } = await client.rpc(rpcName, { p_order_id: id });
+
+    btn.disabled = false;
+    if (error) { showMsg(ordersMsg, error.message, 'error'); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    showMsg(ordersMsg, `Solicitud ${row.order_number}: ${row.status === 'paid' ? 'marcada como pagada' : 'cancelada'}.`, 'ok');
+    loadOrders(activeStatus);
+    loadInventory();
+  });
+
+  // ---- Buscar por código ----
+  document.getElementById('searchBtn').addEventListener('click', async () => {
+    const code = document.getElementById('searchCode').value.trim();
+    const resultEl = document.getElementById('searchResult');
+    resultEl.innerHTML = '';
+    if (!code) return;
+
+    const { data: order, error } = await client
+      .from('orders')
+      .select('id, order_number, status, total_reference, created_at, paid_at, cancelled_at')
+      .eq('order_number', code)
+      .maybeSingle();
+
+    if (error || !order) { resultEl.innerHTML = '<p class="msg msg-error">No se encontró esa solicitud.</p>'; return; }
+
+    const { data: items } = await client
+      .from('order_items')
+      .select('quantity, unit_price, product_variants(size, products(name))')
+      .eq('order_id', order.id);
+
+    const itemsHtml = (items || []).map(it =>
+      `${it.product_variants.products.name} — talla ${it.product_variants.size} × ${it.quantity} (${moneyFmt(it.unit_price)} c/u)`
+    ).join('<br>');
+
+    let actions = '';
+    if (order.status === 'pending') {
+      actions = `<div class="row" style="margin-top:10px;">
+        <button data-action="pay" data-id="${order.id}">Marcar pagada</button>
+        <button class="danger" data-action="cancel" data-id="${order.id}">Cancelar</button>
+      </div>`;
+    }
+
+    resultEl.innerHTML = `
+      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)}</p>
+      <p style="margin:6px 0;">${itemsHtml}</p>
+      <p>Total de referencia: ${moneyFmt(order.total_reference)}</p>
+      ${actions}
+    `;
+
+    const searchActionsEl = resultEl.querySelector('.row');
+    if (searchActionsEl) {
+      searchActionsEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const rpcName = btn.dataset.action === 'pay' ? 'confirm_order_payment' : 'cancel_order';
+        const { data, error } = await client.rpc(rpcName, { p_order_id: btn.dataset.id });
+        if (error) { resultEl.innerHTML += `<p class="msg msg-error">${error.message}</p>`; return; }
+        document.getElementById('searchBtn').click();
+        loadOrders(activeStatus);
+        loadInventory();
+      });
+    }
+  });
+
+  // ---- Inventario ----
+  async function loadInventory() {
+    const tbody = document.getElementById('inventoryBody');
+    const msgEl = document.getElementById('inventoryMsg');
+    tbody.innerHTML = '';
+    showMsg(msgEl, '', null);
+
+    const { data, error } = await client
+      .from('products')
+      .select('id, name, sale_mode, product_variants(id, size, stock_on_hand)')
+      .order('name');
+
+    if (error) { showMsg(msgEl, 'Error cargando inventario: ' + error.message, 'error'); return; }
+
+    data.forEach(p => {
+      const variants = {};
+      (p.product_variants || []).forEach(v => { variants[v.size] = v; });
+      const total = SIZE_ORDER.reduce((sum, s) => sum + (variants[s] ? variants[s].stock_on_hand : 0), 0);
+
+      const tr = document.createElement('tr');
+      const sizeCells = SIZE_ORDER.map(s => {
+        const v = variants[s];
+        if (!v) return '<td>—</td>';
+        return `<td><input type="number" min="0" class="stock-input" data-variant-id="${v.id}" value="${v.stock_on_hand}"></td>`;
+      }).join('');
+
+      let statusLabel = p.sale_mode === 'preorder' ? 'Por encargo' : (total <= 0 ? '<span class="low-stock">Agotado</span>' : (total === 1 ? '<span class="low-stock">Última unidad</span>' : 'Disponible'));
+
+      tr.innerHTML = `
+        <td>${p.name}</td>
+        ${sizeCells}
+        <td>${total}</td>
+        <td>${statusLabel}</td>
+        <td><button class="secondary save-stock-btn" data-product-id="${p.id}">Guardar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('inventoryBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.save-stock-btn');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const inputs = tr.querySelectorAll('.stock-input');
+    const msgEl = document.getElementById('inventoryMsg');
+    btn.disabled = true;
+
+    const updates = Array.from(inputs).map(inp => ({
+      id: inp.dataset.variantId,
+      stock_on_hand: Math.max(0, parseInt(inp.value, 10) || 0)
+    }));
+
+    let failed = null;
+    for (const u of updates) {
+      const { error } = await client.from('product_variants').update({ stock_on_hand: u.stock_on_hand }).eq('id', u.id);
+      if (error) { failed = error; break; }
+    }
+
+    btn.disabled = false;
+    if (failed) { showMsg(msgEl, 'Error guardando: ' + failed.message, 'error'); return; }
+    showMsg(msgEl, 'Inventario actualizado.', 'ok');
+    loadInventory();
+  });
+
+  if (client) checkSession();
+</script>
+</body>
+</html>
