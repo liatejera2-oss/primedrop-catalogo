@@ -182,9 +182,20 @@
   #purchaseQty { width: 60px; height: 40px; text-align: center; border: 1px solid var(--line); border-radius: 6px; font-size: 15px; font-family: 'Inter', sans-serif; -moz-appearance: textfield; }
   #purchaseQty::-webkit-outer-spin-button, #purchaseQty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .purchase-stock-note { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
-  .purchase-total { font-size: 14px; margin-bottom: 12px; }
+  .payment-mode-row { display: flex; gap: 8px; }
+  .payment-mode-btn { flex: 1; font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600; padding: 10px 8px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: all .15s ease; line-height: 1.3; }
+  .payment-mode-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .purchase-deposit-note { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+  .purchase-total { font-size: 14px; margin-bottom: 4px; }
+  .purchase-total-sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 12px; }
   .purchase-disclaimer { font-size: 12px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 16px; }
   .purchase-instruction { font-size: 13.5px; line-height: 1.5; margin: 10px 0 18px; }
+  .purchase-steps { list-style: none; padding: 0; margin: 14px 0 18px; counter-reset: pstep; }
+  .purchase-steps li { position: relative; padding-left: 30px; font-size: 13.5px; line-height: 1.5; margin-bottom: 10px; counter-increment: pstep; }
+  .purchase-steps li::before { content: counter(pstep); position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .purchase-message-box { background: var(--bg-alt); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12.5px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; margin-bottom: 12px; max-height: 160px; overflow-y: auto; font-family: 'Inter', monospace; }
+  .purchase-copy-again { width: 100%; min-height: 40px; background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-pill); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px; transition: background .15s ease; }
+  .purchase-copy-again:hover { background: var(--bg-alt); }
   .purchase-error { font-size: 13px; color: var(--accent); background: #FBEAEA; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; }
   .purchase-submit { width: 100%; min-height: 46px; background: var(--ink); color: #fff; border: none; border-radius: var(--radius-pill); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s ease; }
   .purchase-submit:hover { background: #000; }
@@ -709,7 +720,17 @@
         <p class="purchase-stock-note" id="purchaseStockNote"></p>
       </div>
 
-      <p class="purchase-total">Total de referencia: <strong id="purchaseTotal">$0.00</strong></p>
+      <div class="purchase-field">
+        <label>Forma de pago</label>
+        <div class="payment-mode-row" id="paymentModeRow" role="group" aria-label="Forma de pago">
+          <button type="button" class="payment-mode-btn" data-mode="full" aria-pressed="true">Pago completo</button>
+          <button type="button" class="payment-mode-btn" data-mode="deposit" aria-pressed="false">Con abono (50%)</button>
+        </div>
+        <p class="purchase-deposit-note" id="purchaseDepositNote" hidden></p>
+      </div>
+
+      <p class="purchase-total" id="purchaseTotalLabel">Total de referencia: <strong id="purchaseTotal">$0.00</strong></p>
+      <p class="purchase-total-sub" id="purchaseTotalSub" hidden></p>
       <p class="purchase-disclaimer">Esta solicitud no reserva la pieza hasta que Prime Drop confirme el pago.</p>
 
       <p class="purchase-error" id="purchaseError" role="alert" hidden></p>
@@ -720,9 +741,18 @@
     <div id="purchaseStepSuccess" hidden>
       <p class="purchase-eyebrow">Solicitud creada</p>
       <h3 id="purchaseSuccessCode">PD-2026-0000</h3>
-      <p class="purchase-copied-note" id="purchaseCopiedNote">Solicitud copiada</p>
+
+      <ol class="purchase-steps">
+        <li id="purchaseCopiedNote">Ya copiamos tu mensaje.</li>
+        <li>Se va a abrir Instagram en una pestaña nueva.</li>
+        <li>Toca el cuadro de mensaje y <strong>mantén presionado → Pegar</strong>.</li>
+        <li>Envíalo — Prime Drop te confirma disponibilidad, pago y entrega ahí mismo.</li>
+      </ol>
+
+      <div class="purchase-message-box" id="purchaseMessageBox"></div>
+      <button class="purchase-copy-again" id="purchaseCopyAgain">Copiar mensaje de nuevo</button>
+
       <p class="purchase-disclaimer">Esta solicitud no reserva la pieza hasta que Prime Drop confirme el pago.</p>
-      <p class="purchase-instruction">Pega el mensaje en el chat de Instagram que se acaba de abrir para que Prime Drop confirme disponibilidad, pago y entrega.</p>
       <a class="purchase-ig-link" id="purchaseIgLink" href="https://www.instagram.com/primedrop.pa/" target="_blank" rel="noopener noreferrer">Abrir Instagram ↗</a>
       <button class="purchase-submit purchase-submit-secondary" id="purchaseCloseSuccess">Cerrar</button>
     </div>
@@ -782,23 +812,28 @@
       });
     }
 
-    // Pointer-based drag-to-scroll (fixes mouse drag "grabbing" the image
-    // instead of panning the slides — native browsers only auto-scroll
-    // horizontal flex rows via touch, not mouse drag).
+    // Pointer-based drag-to-scroll — MOUSE ONLY. Touch already scrolls
+    // smoothly and natively (CSS scroll-snap), and the browser already
+    // tells taps and swipes apart on its own for touch; hijacking touch
+    // here made swiping feel jumpy and made taps misfire into zoom.
+    // Mouse still needs this because desktop browsers don't let you
+    // drag-scroll a horizontal row with the mouse by default.
     let isDown = false, startX = 0, startScroll = 0, moved = false, downTarget = null;
     slidesEl.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') return;
       isDown = true; moved = false; downTarget = e.target.closest('img');
       startX = e.clientX; startScroll = slidesEl.scrollLeft;
       slidesEl.classList.add('dragging');
       slidesEl.setPointerCapture(e.pointerId);
     });
     slidesEl.addEventListener('pointermove', (e) => {
-      if (!isDown) return;
+      if (e.pointerType !== 'mouse' || !isDown) return;
       const dx = e.clientX - startX;
       if (Math.abs(dx) > 4) moved = true;
       slidesEl.scrollLeft = startScroll - dx;
     });
     function endDrag(e) {
+      if (e && e.pointerType && e.pointerType !== 'mouse') return;
       if (!isDown) return;
       isDown = false;
       slidesEl.classList.remove('dragging');
@@ -806,7 +841,7 @@
       const idx = Math.round(slidesEl.scrollLeft / slidesEl.clientWidth);
       slidesEl.scrollTo({ left: idx * slidesEl.clientWidth, behavior: 'smooth' });
       // setPointerCapture retargets the native "click" event away from the
-      // image, so a plain tap (no real movement) is opened here directly.
+      // image for MOUSE, so a plain tap (no real movement) is opened here.
       if (!moved && downTarget && window.__pdOpenLightbox) {
         const imgs = Array.from(slidesEl.querySelectorAll('img'));
         window.__pdOpenLightbox(imgs, imgs.indexOf(downTarget));
@@ -816,6 +851,18 @@
     slidesEl.addEventListener('pointercancel', endDrag);
     slidesEl.addEventListener('pointerleave', () => { if (isDown) endDrag(); });
     slidesEl.addEventListener('dragstart', (e) => e.preventDefault());
+
+    // Touch (and any other non-mouse pointer): rely on the plain click
+    // event, which fires normally here since touch is never captured
+    // above — the browser itself already suppresses the click if the
+    // tap turned into a swipe, so no extra logic is needed.
+    slidesEl.querySelectorAll('img').forEach(img => {
+      img.addEventListener('click', () => {
+        if (!window.__pdOpenLightbox) return;
+        const imgs = Array.from(slidesEl.querySelectorAll('img'));
+        window.__pdOpenLightbox(imgs, imgs.indexOf(img));
+      });
+    });
   });
 
   // Lightbox / zoom on product photos
@@ -1049,22 +1096,54 @@
     const qtyMinus = document.getElementById('qtyMinus');
     const qtyPlus = document.getElementById('qtyPlus');
     const stockNoteEl = document.getElementById('purchaseStockNote');
+    const paymentModeRow = document.getElementById('paymentModeRow');
+    const depositNoteEl = document.getElementById('purchaseDepositNote');
+    const totalLabelEl = document.getElementById('purchaseTotalLabel');
     const totalEl = document.getElementById('purchaseTotal');
+    const totalSubEl = document.getElementById('purchaseTotalSub');
     const errorEl = document.getElementById('purchaseError');
     const submitBtn = document.getElementById('purchaseSubmit');
     const successCodeEl = document.getElementById('purchaseSuccessCode');
     const copiedNoteEl = document.getElementById('purchaseCopiedNote');
+    const messageBoxEl = document.getElementById('purchaseMessageBox');
+    const copyAgainBtn = document.getElementById('purchaseCopyAgain');
     const closeSuccessBtn = document.getElementById('purchaseCloseSuccess');
 
     let currentSlug = null;
     let currentSize = null;
+    let currentPaymentMode = 'full';
+    let lastMessage = '';
+
+    const DEPOSIT_RATIO = 0.5; // debe coincidir con v_deposit_ratio en create_purchase_request
 
     function updateTotal() {
       const product = catalog[currentSlug];
       if (!product) return;
       const unitPrice = product.sale_mode === 'preorder' ? product.preorder_price : product.regular_price;
       const qty = parseInt(qtyInput.value, 10) || 0;
-      totalEl.textContent = unitPrice != null ? moneyFmt(unitPrice * qty) : '—';
+      if (unitPrice == null) { totalEl.textContent = '—'; totalSubEl.hidden = true; return; }
+      const total = unitPrice * qty;
+      if (currentPaymentMode === 'deposit') {
+        const dueNow = Math.round(total * DEPOSIT_RATIO * 100) / 100;
+        const balance = total - dueNow;
+        totalLabelEl.innerHTML = `Pagas ahora (abono 50%): <strong id="purchaseTotal">${moneyFmt(dueNow)}</strong>`;
+        totalSubEl.textContent = `Precio total de la prenda: ${moneyFmt(total)} · Saldo contra-entrega: ${moneyFmt(balance)}`;
+        totalSubEl.hidden = false;
+        depositNoteEl.textContent = 'Pagas la mitad ahora por Instagram y el resto cuando recibas tu pieza.';
+        depositNoteEl.hidden = false;
+      } else {
+        totalLabelEl.innerHTML = `Total de referencia: <strong id="purchaseTotal">${moneyFmt(total)}</strong>`;
+        totalSubEl.hidden = true;
+        depositNoteEl.hidden = true;
+      }
+    }
+
+    function selectPaymentMode(mode) {
+      currentPaymentMode = mode;
+      paymentModeRow.querySelectorAll('.payment-mode-btn').forEach(btn => {
+        btn.setAttribute('aria-pressed', btn.dataset.mode === mode ? 'true' : 'false');
+      });
+      updateTotal();
     }
 
     function selectSize(size) {
@@ -1113,6 +1192,8 @@
         return `<button type="button" class="purchase-size-btn" data-size="${size}"${disabled ? ' disabled' : ''} aria-pressed="false">${size}</button>`;
       }).join('');
 
+      selectPaymentMode('full');
+
       const firstAvailable = availableSizes.find(s => product.sale_mode === 'preorder' || product.variants[s].stock_on_hand > 0);
       if (firstAvailable) {
         selectSize(firstAvailable);
@@ -1145,10 +1226,26 @@
       updateTotal();
     }
 
+    async function copyMessage(msg) {
+      try {
+        await navigator.clipboard.writeText(msg);
+        return true;
+      } catch (e) {
+        console.warn('[Prime Drop] No se pudo copiar automáticamente el mensaje.', e);
+        return false;
+      }
+    }
+
     sizesEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.purchase-size-btn');
       if (!btn || btn.disabled) return;
       selectSize(btn.dataset.size);
+    });
+
+    paymentModeRow.addEventListener('click', (e) => {
+      const btn = e.target.closest('.payment-mode-btn');
+      if (!btn) return;
+      selectPaymentMode(btn.dataset.mode);
     });
 
     qtyMinus.addEventListener('click', () => { qtyInput.value = (parseInt(qtyInput.value, 10) || 1) - 1; clampQty(); });
@@ -1162,6 +1259,12 @@
 
     purchaseButtons.forEach(btn => {
       btn.addEventListener('click', () => openModal(btn.dataset.product));
+    });
+
+    copyAgainBtn.addEventListener('click', async () => {
+      const ok = await copyMessage(lastMessage);
+      copyAgainBtn.textContent = ok ? '¡Copiado!' : 'No se pudo copiar — selecciona el texto de arriba';
+      setTimeout(() => { copyAgainBtn.textContent = 'Copiar mensaje de nuevo'; }, 2000);
     });
 
     submitBtn.addEventListener('click', async () => {
@@ -1184,7 +1287,8 @@
       const { data, error } = await client.rpc('create_purchase_request', {
         p_product_slug: currentSlug,
         p_size: currentSize,
-        p_quantity: qty
+        p_quantity: qty,
+        p_payment_mode: currentPaymentMode
       });
 
       submitBtn.disabled = false;
@@ -1206,6 +1310,10 @@
         return;
       }
 
+      const paymentLine = row.payment_mode === 'deposit'
+        ? `Forma de pago: Con abono (50%) — pago ahora: ${moneyFmt(row.amount_due_now)} · saldo contra-entrega: ${moneyFmt(row.balance_due)}`
+        : `Forma de pago: Pago completo — ${moneyFmt(row.amount_due_now)}`;
+
       const message = 'Hola, Prime Drop. Creé una solicitud desde el catálogo.\n\n' +
         `Código: ${row.order_number}\n` +
         `Producto: ${row.product_name}\n` +
@@ -1213,23 +1321,20 @@
         `Cantidad: ${row.quantity}\n` +
         `Precio unitario: ${moneyFmt(row.unit_price)}\n` +
         `Total de referencia: ${moneyFmt(row.total_reference)}\n` +
-        `Modalidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'Disponible'}\n\n` +
+        `Modalidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'Disponible'}\n` +
+        `${paymentLine}\n\n` +
         '¿Me pueden confirmar disponibilidad, pago y entrega?';
 
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(message);
-        copied = true;
-      } catch (e) {
-        console.warn('[Prime Drop] No se pudo copiar automáticamente el mensaje.', e);
-      }
+      lastMessage = message;
+      const copied = await copyMessage(message);
 
       stepForm.hidden = true;
       stepSuccess.hidden = false;
       successCodeEl.textContent = row.order_number;
       copiedNoteEl.textContent = copied
-        ? 'Solicitud copiada'
-        : ('No se pudo copiar automáticamente — copia este mensaje:\n\n' + message);
+        ? 'Ya copiamos tu mensaje.'
+        : 'No se pudo copiar automáticamente — selecciona el texto de abajo y cópialo a mano.';
+      messageBoxEl.textContent = message;
 
       window.open(PRIME_DROP_CONFIG.INSTAGRAM_URL, '_blank', 'noopener');
 
