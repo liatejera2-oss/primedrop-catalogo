@@ -119,7 +119,8 @@
   .price { font-size: 16px; font-weight: 700; color: var(--ink); font-family: 'Inter', sans-serif; letter-spacing: -0.01em; }
   .size-row { display: flex; gap: 6px; margin: 14px 0 14px; flex-wrap: wrap; }
   .size-chip { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; min-width: 34px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: default; transition: border-color .15s ease; }
-  .size-chip[data-stock="0"] { color: var(--ink-soft); border-color: var(--line); text-decoration: line-through; opacity: .45; }
+  .size-chip.backorder { color: var(--ink-soft); border-style: dashed; }
+  .size-caption { font-size: 11px; color: var(--ink-soft); margin: -8px 0 12px; }
   .soon-label { font-size: 12.5px; color: var(--ink-soft); font-weight: 400; font-family: 'Inter', sans-serif; letter-spacing: 0; text-transform: none; margin-top: 2px; }
   .ig-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; background: var(--ink); color: #fff; text-decoration: none; font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600; border-radius: var(--radius-sm); transition: background .2s ease, transform .2s ease; margin-top: 4px; }
   .ig-btn:hover, .ig-btn:focus-visible { background: #000; transform: translateY(-1px); }
@@ -175,6 +176,8 @@
   .purchase-sizes { display: flex; gap: 8px; flex-wrap: wrap; }
   .purchase-size-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-width: 44px; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
   .purchase-size-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .purchase-size-btn.backorder { border-style: dashed; }
+  .purchase-size-btn.backorder[aria-pressed="true"] { border-style: solid; }
   .purchase-size-btn:disabled { color: var(--ink-soft); border-color: var(--line); text-decoration: line-through; opacity: .45; cursor: not-allowed; }
   .purchase-qty-row { display: flex; align-items: center; gap: 10px; }
   .qty-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; font-size: 18px; cursor: pointer; color: var(--ink); transition: border-color .15s ease; }
@@ -1052,11 +1055,22 @@
         const slug = row.dataset.product;
         const product = catalog[slug];
         if (!product) { row.innerHTML = '<span class="size-loading">No disponible</span>'; return; }
+        let anyBackorder = false;
         row.innerHTML = SIZE_ORDER.filter(size => product.variants[size]).map(size => {
           const stock = product.variants[size].stock_on_hand;
-          const disabled = product.sale_mode === 'in_stock' && stock <= 0;
-          return `<button type="button" class="size-chip" data-size="${size}" data-stock="${stock}"${disabled ? ' disabled' : ''}>${size}</button>`;
+          const backorder = product.sale_mode === 'in_stock' && stock <= 0;
+          if (backorder) anyBackorder = true;
+          return `<button type="button" class="size-chip${backorder ? ' backorder' : ''}" data-size="${size}" data-stock="${stock}">${size}</button>`;
         }).join('');
+
+        let caption = row.nextElementSibling;
+        if (!caption || !caption.classList || !caption.classList.contains('size-caption')) {
+          caption = document.createElement('p');
+          caption.className = 'size-caption';
+          row.insertAdjacentElement('afterend', caption);
+        }
+        caption.textContent = anyBackorder ? 'Talla punteada: disponible por pedido.' : '';
+        caption.style.display = anyBackorder ? '' : 'none';
       });
     }
 
@@ -1071,8 +1085,8 @@
         }
         const total = totalStock(product);
         if (total <= 0) {
-          tag.textContent = 'Agotado';
-          tag.classList.add('status-soon');
+          tag.textContent = 'Por pedido';
+          tag.classList.remove('status-soon');
         } else if (total === 1) {
           tag.textContent = 'Última unidad';
           tag.classList.remove('status-soon');
@@ -1155,17 +1169,20 @@
       const variant = product.variants[size];
       const stock = variant ? variant.stock_on_hand : 0;
 
-      if (product.sale_mode === 'in_stock') {
-        const max = Math.max(stock, 0);
-        qtyInput.max = max;
-        qtyInput.value = max > 0 ? 1 : 0;
-        stockNoteEl.textContent = max === 1
+      if (product.sale_mode === 'in_stock' && stock > 0) {
+        qtyInput.max = stock;
+        qtyInput.value = 1;
+        stockNoteEl.textContent = stock === 1
           ? 'Última unidad en esta talla'
-          : (max > 1 ? `Disponibles en esta talla: ${max}` : 'Sin existencia en esta talla');
+          : `Disponibles en esta talla: ${stock}`;
       } else {
+        // Sin existencia (o producto por encargo): se pide especialmente,
+        // no hay un tope real de inventario que respetar.
         qtyInput.max = 99;
         qtyInput.value = 1;
-        stockNoteEl.textContent = '';
+        stockNoteEl.textContent = product.sale_mode === 'in_stock'
+          ? 'Por pedido — no hay en inventario ahora, se pedirá especialmente.'
+          : '';
       }
       updateTotal();
     }
@@ -1188,15 +1205,14 @@
       const availableSizes = SIZE_ORDER.filter(s => product.variants[s]);
       sizesEl.innerHTML = availableSizes.map(size => {
         const stock = product.variants[size].stock_on_hand;
-        const disabled = product.sale_mode === 'in_stock' && stock <= 0;
-        return `<button type="button" class="purchase-size-btn" data-size="${size}"${disabled ? ' disabled' : ''} aria-pressed="false">${size}</button>`;
+        const backorder = product.sale_mode === 'in_stock' && stock <= 0;
+        return `<button type="button" class="purchase-size-btn${backorder ? ' backorder' : ''}" data-size="${size}" aria-pressed="false">${size}</button>`;
       }).join('');
 
       selectPaymentMode('full');
 
-      const firstAvailable = availableSizes.find(s => product.sale_mode === 'preorder' || product.variants[s].stock_on_hand > 0);
-      if (firstAvailable) {
-        selectSize(firstAvailable);
+      if (availableSizes.length) {
+        selectSize(availableSizes[0]);
       } else {
         qtyInput.value = 1;
         qtyInput.max = 1;
@@ -1204,9 +1220,10 @@
         updateTotal();
       }
 
-      const soldOut = product.sale_mode === 'in_stock' && totalStock(product) <= 0;
-      submitBtn.disabled = soldOut;
-      submitBtn.textContent = soldOut ? 'Agotado' : 'Continuar';
+      // Ya no se bloquea el botón por "Agotado": cualquier talla se puede
+      // pedir especialmente si no hay existencia (ver selectSize).
+      submitBtn.disabled = availableSizes.length === 0;
+      submitBtn.textContent = availableSizes.length === 0 ? 'No disponible' : 'Continuar';
 
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
@@ -1314,6 +1331,10 @@
         ? `Forma de pago: Con abono (50%) — pago ahora: ${moneyFmt(row.amount_due_now)} · saldo contra-entrega: ${moneyFmt(row.balance_due)}`
         : `Forma de pago: Pago completo — ${moneyFmt(row.amount_due_now)}`;
 
+      const modalidadLine = row.fulfillment_type === 'backorder'
+        ? 'Modalidad: Por pedido (no hay en inventario ahora, se pedirá especialmente)'
+        : `Modalidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'Disponible'}`;
+
       const message = 'Hola, Prime Drop. Creé una solicitud desde el catálogo.\n\n' +
         `Código: ${row.order_number}\n` +
         `Producto: ${row.product_name}\n` +
@@ -1321,7 +1342,7 @@
         `Cantidad: ${row.quantity}\n` +
         `Precio unitario: ${moneyFmt(row.unit_price)}\n` +
         `Total de referencia: ${moneyFmt(row.total_reference)}\n` +
-        `Modalidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'Disponible'}\n` +
+        `${modalidadLine}\n` +
         `${paymentLine}\n\n` +
         '¿Me pueden confirmar disponibilidad, pago y entrega?';
 

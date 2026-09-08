@@ -109,7 +109,7 @@
       <div id="ordersMsg"></div>
       <table>
         <thead>
-          <tr><th>Código</th><th>Total</th><th>Pago</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>Código</th><th>Total</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody id="ordersBody"></tbody>
       </table>
@@ -169,6 +169,11 @@
   function paymentBadgeFor(mode) {
     const label = mode === 'deposit' ? 'Abono 50%' : 'Pago completo';
     return `<span class="badge badge-${mode === 'deposit' ? 'deposit' : 'full'}">${label}</span>`;
+  }
+
+  function fulfillmentBadgeFor(type) {
+    if (type !== 'backorder') return '<span class="badge" style="background:#F1F1F1;color:var(--ink-soft);">Stock</span>';
+    return '<span class="badge" style="background:#FDEFE0;color:#9A5B00;">Por pedido</span>';
   }
 
   async function checkSession(providedSession) {
@@ -241,7 +246,7 @@
 
     const { data, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, payment_mode, created_at')
+      .select('id, order_number, status, total_reference, payment_mode, fulfillment_type, created_at')
       .eq('status', status)
       .order('created_at', { ascending: false });
 
@@ -263,6 +268,7 @@
       <td>${o.order_number}</td>
       <td>${moneyFmt(o.total_reference)}</td>
       <td>${paymentBadgeFor(o.payment_mode)}</td>
+      <td>${fulfillmentBadgeFor(o.fulfillment_type)}</td>
       <td>${created}</td>
       <td>${badgeFor(o.status)}</td>
       <td>${actions}</td>
@@ -298,7 +304,7 @@
 
     const { data: order, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, payment_mode, created_at, paid_at, cancelled_at')
+      .select('id, order_number, status, total_reference, payment_mode, fulfillment_type, created_at, paid_at, cancelled_at')
       .eq('order_number', code)
       .maybeSingle();
 
@@ -322,7 +328,7 @@
     }
 
     resultEl.innerHTML = `
-      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)}</p>
+      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)} ${fulfillmentBadgeFor(order.fulfillment_type)}</p>
       <p style="margin:6px 0;">${itemsHtml}</p>
       <p>Total de referencia: ${moneyFmt(order.total_reference)}</p>
       ${actions}
@@ -424,7 +430,7 @@
 
     let query = client
       .from('orders')
-      .select('order_number, status, total_reference, payment_mode, created_at, paid_at')
+      .select('order_number, status, total_reference, payment_mode, fulfillment_type, created_at, paid_at')
       .order('created_at', { ascending: true });
 
     if (fromVal) query = query.gte('created_at', fromVal + 'T00:00:00');
@@ -436,8 +442,9 @@
 
     const statusLabel = { pending: 'Pendiente', paid: 'Pagada', cancelled: 'Cancelada' };
     const paymentLabel = { full: 'Pago completo', deposit: 'Abono 50%' };
+    const fulfillmentLabel = { stock: 'Stock', backorder: 'Por pedido' };
 
-    const headers = ['Código', 'Estado', 'Forma de pago', 'Total de la prenda', 'Monto a cobrar', 'Fecha de creación', 'Fecha de pago'];
+    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total de la prenda', 'Monto a cobrar', 'Fecha de creación', 'Fecha de pago'];
     const rows = data.map(o => {
       const total = Number(o.total_reference);
       const amountDue = o.payment_mode === 'deposit' ? Math.round(total * DEPOSIT_RATIO * 100) / 100 : total;
@@ -445,6 +452,7 @@
         o.order_number,
         statusLabel[o.status] || o.status,
         paymentLabel[o.payment_mode] || o.payment_mode,
+        fulfillmentLabel[o.fulfillment_type] || o.fulfillment_type,
         total.toFixed(2),
         amountDue.toFixed(2),
         new Date(o.created_at).toLocaleString('es-PA'),
