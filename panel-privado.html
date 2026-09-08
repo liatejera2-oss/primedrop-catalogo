@@ -36,6 +36,8 @@
   .badge-pending { background: #FFF3D6; color: #8A6300; }
   .badge-paid { background: #DFF3E3; color: #1E7A34; }
   .badge-cancelled { background: #F1F1F1; color: var(--ink-soft); }
+  .badge-full { background: #EAF1FB; color: #1B4C8C; }
+  .badge-deposit { background: #FDEFE0; color: #9A5B00; }
   .msg { font-size: 13px; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; }
   .msg-error { background: #FBEAEA; color: var(--accent); }
   .msg-ok { background: #DFF3E3; color: #1E7A34; }
@@ -94,7 +96,7 @@
       <div id="ordersMsg"></div>
       <table>
         <thead>
-          <tr><th>Código</th><th>Total</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+          <tr><th>Código</th><th>Total</th><th>Pago</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
         </thead>
         <tbody id="ordersBody"></tbody>
       </table>
@@ -149,6 +151,11 @@
   function badgeFor(status) {
     const label = status === 'pending' ? 'Pendiente' : status === 'paid' ? 'Pagada' : 'Cancelada';
     return `<span class="badge badge-${status}">${label}</span>`;
+  }
+
+  function paymentBadgeFor(mode) {
+    const label = mode === 'deposit' ? 'Abono 50%' : 'Pago completo';
+    return `<span class="badge badge-${mode === 'deposit' ? 'deposit' : 'full'}">${label}</span>`;
   }
 
   async function checkSession() {
@@ -213,7 +220,7 @@
 
     const { data, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, created_at')
+      .select('id, order_number, status, total_reference, payment_mode, created_at')
       .eq('status', status)
       .order('created_at', { ascending: false });
 
@@ -234,6 +241,7 @@
     tr.innerHTML = `
       <td>${o.order_number}</td>
       <td>${moneyFmt(o.total_reference)}</td>
+      <td>${paymentBadgeFor(o.payment_mode)}</td>
       <td>${created}</td>
       <td>${badgeFor(o.status)}</td>
       <td>${actions}</td>
@@ -269,7 +277,7 @@
 
     const { data: order, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, created_at, paid_at, cancelled_at')
+      .select('id, order_number, status, total_reference, payment_mode, created_at, paid_at, cancelled_at')
       .eq('order_number', code)
       .maybeSingle();
 
@@ -293,7 +301,7 @@
     }
 
     resultEl.innerHTML = `
-      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)}</p>
+      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)}</p>
       <p style="margin:6px 0;">${itemsHtml}</p>
       <p>Total de referencia: ${moneyFmt(order.total_reference)}</p>
       ${actions}
