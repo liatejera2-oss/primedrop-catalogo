@@ -44,6 +44,8 @@
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tab-btn { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
   .tab-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .view-tab-btn { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-size: 14px; padding: 10px 20px; }
+  .view-tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .hidden { display: none !important; }
   .stock-input { width: 70px; padding: 6px 8px; margin-bottom: 0; }
   .low-stock { color: var(--accent); font-weight: 600; }
@@ -74,57 +76,133 @@
   <div id="panel" class="hidden">
     <div class="row" style="justify-content: space-between; margin-bottom: 20px;">
       <p class="sub" id="sessionInfo" style="margin:0;"></p>
-      <button class="secondary" id="logoutBtn">Cerrar sesión</button>
+      <div class="row" style="gap:8px;">
+        <button class="secondary" id="refreshBtn" title="Actualizar datos">↻ Actualizar</button>
+        <button class="secondary" id="logoutBtn">Cerrar sesión</button>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Buscar solicitud por código</h2>
-      <div class="row">
-        <input type="text" id="searchCode" placeholder="PD-2026-0001" style="max-width:220px; margin-bottom:0;">
-        <button class="secondary" id="searchBtn">Buscar</button>
-      </div>
-      <div id="searchResult" style="margin-top:14px;"></div>
+    <div class="tabs" style="margin-bottom:24px;">
+      <button class="view-tab-btn active" data-view="solicitudes">Solicitudes</button>
+      <button class="view-tab-btn" data-view="inventario">Inventario</button>
+      <button class="view-tab-btn" data-view="proximos">Próximos drops</button>
     </div>
 
-    <div class="card">
-      <h2>Solicitudes</h2>
-      <div class="tabs">
-        <button class="tab-btn active" data-status="pending">Pendientes</button>
-        <button class="tab-btn" data-status="paid">Pagadas</button>
-        <button class="tab-btn" data-status="cancelled">Canceladas</button>
-      </div>
-      <div class="row" style="margin-bottom:16px; align-items:flex-end;">
-        <div>
-          <label for="exportFrom">Desde</label>
-          <input type="date" id="exportFrom" style="margin-bottom:0;">
+    <div id="viewSolicitudes" class="view-section">
+      <div class="card">
+        <h2>Buscar solicitud por código</h2>
+        <div class="row">
+          <input type="text" id="searchCode" placeholder="PD-2026-0001" style="max-width:220px; margin-bottom:0;">
+          <button class="secondary" id="searchBtn">Buscar</button>
         </div>
-        <div>
-          <label for="exportTo">Hasta</label>
-          <input type="date" id="exportTo" style="margin-bottom:0;">
-        </div>
-        <button class="secondary" id="exportCsvBtn">Descargar CSV</button>
-        <span class="sub" style="margin:0;">Vacío en ambas fechas = descarga todas las solicitudes.</span>
+        <div id="searchResult" style="margin-top:14px;"></div>
       </div>
-      <div id="exportMsg"></div>
-      <div id="ordersMsg"></div>
-      <table>
-        <thead>
-          <tr><th>Código</th><th>Total</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
-        </thead>
-        <tbody id="ordersBody"></tbody>
-      </table>
+
+      <div class="card">
+        <h2>Solicitudes</h2>
+        <div class="tabs">
+          <button class="tab-btn active" data-status="pending">Pendientes</button>
+          <button class="tab-btn" data-status="paid">Pagadas</button>
+          <button class="tab-btn" data-status="cancelled">Canceladas</button>
+        </div>
+        <div class="row" style="margin-bottom:16px; align-items:flex-end;">
+          <div>
+            <label for="exportFrom">Desde</label>
+            <input type="date" id="exportFrom" style="margin-bottom:0;">
+          </div>
+          <div>
+            <label for="exportTo">Hasta</label>
+            <input type="date" id="exportTo" style="margin-bottom:0;">
+          </div>
+          <button class="secondary" id="exportCsvBtn">Descargar CSV</button>
+          <span class="sub" style="margin:0;">Vacío en ambas fechas = descarga todas las solicitudes.</span>
+        </div>
+        <div id="exportMsg"></div>
+        <div id="ordersMsg"></div>
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Total</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Inventario por producto</h2>
-      <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago.</p>
-      <div id="inventoryMsg"></div>
-      <table>
-        <thead>
-          <tr><th>Producto</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th></th></tr>
-        </thead>
-        <tbody id="inventoryBody"></tbody>
-      </table>
+    <div id="viewInventario" class="view-section hidden">
+      <div class="card">
+        <h2>Inventario por producto</h2>
+        <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago.</p>
+        <div id="inventoryMsg"></div>
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="inventoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="viewProximos" class="view-section hidden">
+      <div class="card">
+        <h2>Próximos drops</h2>
+        <p class="sub" style="margin-bottom:14px;">
+          Prepara aquí el precio y las tallas de las prendas que aún no están en tu inventario.
+          Cuando te lleguen, ponles precio y existencias y dale <strong>"Publicar"</strong> — aparecerán
+          automáticamente como "Disponible" en el catálogo público, sin que yo tenga que tocar código.
+        </p>
+        <div id="upcomingMsg"></div>
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="upcomingBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Agregar producto nuevo</h2>
+        <p class="sub" style="margin-bottom:14px;">
+          Para algo que se te ocurra que ni siquiera está en el catálogo todavía (ej. una camiseta de la NFL).
+          Guarda aquí el nombre, precio y tallas — <strong>esto no lo hace aparecer solo en el catálogo</strong>,
+          porque a diferencia de los drops de arriba, este producto todavía no tiene foto ni tarjeta creada.
+          Mándame la foto cuando quieras y yo agrego la tarjeta usando estos mismos datos, sin que tengas que
+          volver a escribirlos.
+        </p>
+        <div id="newProductMsg"></div>
+        <div class="row" style="align-items:flex-end;">
+          <div style="flex:2; min-width:180px;">
+            <label for="newProductName">Nombre</label>
+            <input type="text" id="newProductName" placeholder="Ej. Kansas City Chiefs — Jersey Mahomes" style="margin-bottom:0;">
+          </div>
+          <div style="flex:1; min-width:120px;">
+            <label for="newProductCategory">Categoría</label>
+            <input type="text" id="newProductCategory" placeholder="T-shirt / Polo / Jacket" style="margin-bottom:0;">
+          </div>
+          <div style="flex:1; min-width:100px;">
+            <label for="newProductPrice">Precio</label>
+            <input type="number" min="0" step="0.01" id="newProductPrice" placeholder="$" style="margin-bottom:0;">
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px; align-items:flex-end;">
+          <div><label>S</label><input type="number" min="0" id="newProductS" value="0" style="width:70px; margin-bottom:0;"></div>
+          <div><label>M</label><input type="number" min="0" id="newProductM" value="0" style="width:70px; margin-bottom:0;"></div>
+          <div><label>L</label><input type="number" min="0" id="newProductL" value="0" style="width:70px; margin-bottom:0;"></div>
+          <div><label>XL</label><input type="number" min="0" id="newProductXL" value="0" style="width:70px; margin-bottom:0;"></div>
+          <button id="newProductSaveBtn">Guardar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Productos guardados sin foto todavía</h2>
+        <p class="sub" style="margin-bottom:14px;">Lo que has ido agregando con el formulario de arriba, a la espera de que yo les cree la tarjeta en el catálogo.</p>
+        <div id="draftsMsg"></div>
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th></tr>
+          </thead>
+          <tbody id="draftsBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -200,8 +278,38 @@
     loginCard.classList.add('hidden');
     panel.classList.remove('hidden');
     loadOrders('pending');
-    loadInventory();
   }
+
+  // ---- Cambio de vista (Solicitudes / Inventario / Próximos drops) ----
+  let currentView = 'solicitudes';
+  const viewSections = {
+    solicitudes: document.getElementById('viewSolicitudes'),
+    inventario: document.getElementById('viewInventario'),
+    proximos: document.getElementById('viewProximos')
+  };
+  const viewLoaded = { solicitudes: true, inventario: false, proximos: false };
+
+  function showView(view) {
+    currentView = view;
+    document.querySelectorAll('.view-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+    Object.keys(viewSections).forEach(key => {
+      viewSections[key].classList.toggle('hidden', key !== view);
+    });
+    if (view === 'inventario' && !viewLoaded.inventario) { loadInventory(); viewLoaded.inventario = true; }
+    if (view === 'proximos' && !viewLoaded.proximos) { loadUpcoming(); loadDrafts(); viewLoaded.proximos = true; }
+  }
+
+  document.querySelectorAll('.view-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => showView(btn.dataset.view));
+  });
+
+  document.getElementById('refreshBtn').addEventListener('click', () => {
+    if (currentView === 'solicitudes') loadOrders(activeStatus);
+    if (currentView === 'inventario') loadInventory();
+    if (currentView === 'proximos') { loadUpcoming(); loadDrafts(); }
+  });
 
   function showLogin() {
     loginCard.classList.remove('hidden');
@@ -412,6 +520,204 @@
     showMsg(msgEl, 'Inventario actualizado.', 'ok');
     loadInventory();
   });
+
+  // ---- Próximos drops: preparar precio/tallas y publicar al catálogo ----
+  // Estos slugs deben coincidir EXACTO con los data-product de las 7
+  // tarjetas "Próximamente" del catálogo (index.html) para que, al
+  // publicar, el producto aparezca automáticamente ahí.
+  const UPCOMING_PRODUCTS = [
+    { slug: 'barca-morado-yamal',       name: 'FC Barcelona — Jersey Morado / Lamine Yamal' },
+    { slug: 'mancity-haaland',          name: 'Manchester City — Jersey Celeste / Haaland' },
+    { slug: 'chelsea-negro',            name: 'Chelsea FC — Jersey Negro' },
+    { slug: 'barca-blaugrana-raphinha', name: 'FC Barcelona — Jersey Blaugrana / Raphinha' },
+    { slug: 'psg-dembele',              name: 'Paris Saint-Germain — Jersey Blanco / Dembélé' },
+    { slug: 'rm-blanco-bellingham',     name: 'Real Madrid — Jersey Blanco / Bellingham' },
+    { slug: 'rm-verde-mbappe',          name: 'Real Madrid — Jersey Verde / Mbappé' }
+  ];
+
+  async function loadUpcoming() {
+    const tbody = document.getElementById('upcomingBody');
+    const msgEl = document.getElementById('upcomingMsg');
+    tbody.innerHTML = '';
+    showMsg(msgEl, '', null);
+
+    const slugs = UPCOMING_PRODUCTS.map(p => p.slug);
+    const { data, error } = await client
+      .from('products')
+      .select('slug, regular_price, active, product_variants(size, stock_on_hand)')
+      .in('slug', slugs);
+
+    if (error) { showMsg(msgEl, 'Error cargando: ' + error.message, 'error'); return; }
+
+    const bySlug = {};
+    (data || []).forEach(p => { bySlug[p.slug] = p; });
+
+    UPCOMING_PRODUCTS.forEach(item => {
+      const existing = bySlug[item.slug];
+      const variants = {};
+      (existing?.product_variants || []).forEach(v => { variants[v.size] = v.stock_on_hand; });
+      const isPublished = existing?.active === true;
+
+      const tr = document.createElement('tr');
+      const priceVal = existing?.regular_price ?? '';
+      const sizeCells = SIZE_ORDER.map(s =>
+        `<td><input type="number" min="0" class="stock-input" data-size="${s}" value="${variants[s] ?? 0}"></td>`
+      ).join('');
+
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td><input type="number" min="0" step="0.01" class="stock-input" style="width:80px;" data-price value="${priceVal}" placeholder="$"></td>
+        ${sizeCells}
+        <td>${isPublished ? '<span class="badge badge-paid">Publicado</span>' : '<span class="badge badge-pending">Sin publicar</span>'}</td>
+        <td><button class="${isPublished ? 'secondary' : ''} publish-btn" data-slug="${item.slug}" data-name="${item.name}">${isPublished ? 'Actualizar' : 'Publicar'}</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('upcomingBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.publish-btn');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const msgEl = document.getElementById('upcomingMsg');
+    const slug = btn.dataset.slug;
+    const name = btn.dataset.name;
+    const priceInput = tr.querySelector('[data-price]');
+    const price = parseFloat(priceInput.value);
+
+    if (isNaN(price) || price <= 0) {
+      showMsg(msgEl, `Ponle un precio válido a "${name}" antes de publicar.`, 'error');
+      return;
+    }
+
+    const stocks = {};
+    tr.querySelectorAll('[data-size]').forEach(inp => {
+      stocks[inp.dataset.size] = Math.max(0, parseInt(inp.value, 10) || 0);
+    });
+
+    btn.disabled = true;
+    showMsg(msgEl, '', null);
+
+    const { data: prod, error: pErr } = await client
+      .from('products')
+      .upsert({ slug, name, category: 'T-shirt', regular_price: price, sale_mode: 'in_stock', active: true }, { onConflict: 'slug' })
+      .select()
+      .single();
+
+    if (pErr) {
+      btn.disabled = false;
+      showMsg(msgEl, 'Error publicando: ' + pErr.message, 'error');
+      return;
+    }
+
+    const variantRows = SIZE_ORDER.map(size => ({ product_id: prod.id, size, stock_on_hand: stocks[size] || 0 }));
+    const { error: vErr } = await client.from('product_variants').upsert(variantRows, { onConflict: 'product_id,size' });
+
+    btn.disabled = false;
+    if (vErr) { showMsg(msgEl, 'Error guardando tallas: ' + vErr.message, 'error'); return; }
+
+    showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo.`, 'ok');
+    loadUpcoming();
+  });
+
+  // ---- Agregar producto nuevo (sin foto/tarjeta todavía) ----
+  function slugify(text) {
+    return text
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60);
+  }
+
+  document.getElementById('newProductSaveBtn').addEventListener('click', async () => {
+    const msgEl = document.getElementById('newProductMsg');
+    const name = document.getElementById('newProductName').value.trim();
+    const category = document.getElementById('newProductCategory').value.trim() || 'T-shirt';
+    const price = parseFloat(document.getElementById('newProductPrice').value);
+    const stocks = {
+      S: Math.max(0, parseInt(document.getElementById('newProductS').value, 10) || 0),
+      M: Math.max(0, parseInt(document.getElementById('newProductM').value, 10) || 0),
+      L: Math.max(0, parseInt(document.getElementById('newProductL').value, 10) || 0),
+      XL: Math.max(0, parseInt(document.getElementById('newProductXL').value, 10) || 0)
+    };
+
+    if (!name) { showMsg(msgEl, 'Ponle un nombre al producto.', 'error'); return; }
+    if (isNaN(price) || price <= 0) { showMsg(msgEl, 'Ponle un precio válido.', 'error'); return; }
+
+    const baseSlug = slugify(name);
+    if (!baseSlug) { showMsg(msgEl, 'Ese nombre no generó un identificador válido, prueba con otro.', 'error'); return; }
+
+    const btn = document.getElementById('newProductSaveBtn');
+    btn.disabled = true;
+    showMsg(msgEl, '', null);
+
+    // Evita chocar con un slug existente añadiendo un sufijo si hace falta.
+    let slug = baseSlug;
+    const { data: clash } = await client.from('products').select('slug').eq('slug', slug).maybeSingle();
+    if (clash) slug = baseSlug + '-' + Date.now().toString().slice(-4);
+
+    const { data: prod, error: pErr } = await client
+      .from('products')
+      .insert({ slug, name, category, regular_price: price, sale_mode: 'in_stock', active: false })
+      .select()
+      .single();
+
+    if (pErr) {
+      btn.disabled = false;
+      showMsg(msgEl, 'Error guardando: ' + pErr.message, 'error');
+      return;
+    }
+
+    const variantRows = SIZE_ORDER.map(size => ({ product_id: prod.id, size, stock_on_hand: stocks[size] }));
+    const { error: vErr } = await client.from('product_variants').insert(variantRows);
+
+    btn.disabled = false;
+    if (vErr) { showMsg(msgEl, 'Error guardando tallas: ' + vErr.message, 'error'); return; }
+
+    document.getElementById('newProductName').value = '';
+    document.getElementById('newProductCategory').value = '';
+    document.getElementById('newProductPrice').value = '';
+    ['S', 'M', 'L', 'XL'].forEach(s => { document.getElementById('newProduct' + s).value = 0; });
+
+    showMsg(msgEl, `Guardado. Mándame la foto de "${name}" cuando quieras para agregarlo al catálogo.`, 'ok');
+    loadDrafts();
+  });
+
+  async function loadDrafts() {
+    const tbody = document.getElementById('draftsBody');
+    const msgEl = document.getElementById('draftsMsg');
+    tbody.innerHTML = '';
+    showMsg(msgEl, '', null);
+
+    const knownSlugs = UPCOMING_PRODUCTS.map(p => p.slug);
+    const { data, error } = await client
+      .from('products')
+      .select('slug, name, category, regular_price, product_variants(size, stock_on_hand)')
+      .eq('active', false)
+      .order('created_at', { ascending: false });
+
+    if (error) { showMsg(msgEl, 'Error cargando: ' + error.message, 'error'); return; }
+
+    const drafts = (data || []).filter(p => !knownSlugs.includes(p.slug));
+    if (!drafts.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--ink-soft);">No hay productos nuevos guardados todavía.</td></tr>'; return; }
+
+    drafts.forEach(p => {
+      const variants = {};
+      (p.product_variants || []).forEach(v => { variants[v.size] = v.stock_on_hand; });
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.name}</td>
+        <td>${p.category}</td>
+        <td>${moneyFmt(p.regular_price)}</td>
+        <td>${variants.S ?? 0}</td>
+        <td>${variants.M ?? 0}</td>
+        <td>${variants.L ?? 0}</td>
+        <td>${variants.XL ?? 0}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
   // ---- Descargar CSV (conciliación bancaria) ----
   const DEPOSIT_RATIO = 0.5; // debe coincidir con v_deposit_ratio en create_purchase_request
