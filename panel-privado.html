@@ -47,7 +47,21 @@
   .view-tab-btn { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); font-size: 14px; padding: 10px 20px; }
   .view-tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .hidden { display: none !important; }
-  .stock-input { width: 70px; padding: 6px 8px; margin-bottom: 0; }
+  /* input[type="number"] (arriba) es más específico que .stock-input sola
+     (element+attribute vs. solo clase), así que ganaba su width:100% y
+     dejaba el input aplastado a lo que sobrara en la celda — de ahí los
+     números ilegibles. input.stock-input iguala esa especificidad. */
+  input.stock-input { width: 70px; padding: 6px 8px; margin-bottom: 0; font-size: 14px; text-align: center; }
+  /* Quita las flechas nativas del input number — en columnas angostas se
+     comían el ancho y dejaban el dígito ilegible (se veía como puntos). */
+  .stock-input::-webkit-outer-spin-button, .stock-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .stock-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  /* width:100% en <table> deja que el layout "auto" comprima los inputs de
+     ancho fijo (S/M/L/XL) cuando no caben — por eso los números se veían
+     ilegibles. Dentro de .table-scroll la tabla crece a su ancho real y el
+     contenedor scrollea en vez de aplastar las columnas. */
+  .table-scroll { overflow-x: auto; }
+  .table-scroll table { width: auto; min-width: 100%; }
   .delete-draft-btn { background: transparent; color: var(--accent); border: 1px solid var(--line); border-radius: 50%; width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 14px; }
   .delete-draft-btn:hover { background: #FBEAEA; border-color: var(--accent); }
   .low-stock { color: var(--accent); font-weight: 600; }
@@ -135,12 +149,14 @@
         <h2>Inventario por producto</h2>
         <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago. La columna "Catálogo" controla si la prenda se ve en la página pública, sin importar el stock que tenga.</p>
         <div id="inventoryMsg"></div>
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th></th></tr>
           </thead>
           <tbody id="inventoryBody"></tbody>
         </table>
+        </div>
       </div>
     </div>
 
@@ -155,12 +171,14 @@
           <strong>"Inventario"</strong> (precio, tallas, y si quieres bajarla del catálogo).
         </p>
         <div id="upcomingMsg"></div>
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Estado</th><th></th></tr>
           </thead>
           <tbody id="upcomingBody"></tbody>
         </table>
+        </div>
       </div>
 
       <div class="card">
@@ -200,12 +218,14 @@
         <h2>Productos guardados sin foto todavía</h2>
         <p class="sub" style="margin-bottom:14px;">Lo que has ido agregando con el formulario de arriba, a la espera de que yo les cree la tarjeta en el catálogo.</p>
         <div id="draftsMsg"></div>
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th></th></tr>
           </thead>
           <tbody id="draftsBody"></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
