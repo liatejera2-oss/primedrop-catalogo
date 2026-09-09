@@ -48,6 +48,8 @@
   .view-tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .hidden { display: none !important; }
   .stock-input { width: 70px; padding: 6px 8px; margin-bottom: 0; }
+  .delete-draft-btn { background: transparent; color: var(--accent); border: 1px solid var(--line); border-radius: 50%; width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 14px; }
+  .delete-draft-btn:hover { background: #FBEAEA; border-color: var(--accent); }
   .low-stock { color: var(--accent); font-weight: 600; }
   #configWarning { background: #FBEAEA; color: var(--accent); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; font-size: 13.5px; }
 </style>
@@ -200,7 +202,7 @@
         <div id="draftsMsg"></div>
         <table>
           <thead>
-            <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th></tr>
+            <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th></th></tr>
           </thead>
           <tbody id="draftsBody"></tbody>
         </table>
@@ -468,12 +470,18 @@
 
     const { data, error } = await client
       .from('products')
-      .select('id, name, sale_mode, regular_price, active, product_variants(id, size, stock_on_hand)')
+      .select('id, slug, name, sale_mode, regular_price, active, published_once, product_variants(id, size, stock_on_hand)')
       .order('name');
 
     if (error) { showMsg(msgEl, 'Error cargando inventario: ' + error.message, 'error'); return; }
 
-    data.forEach(p => {
+    // Un borrador guardado desde "Próximos drops" (Guardar, sin publicar
+    // todavía) no debe aparecer aquí — sigue siendo territorio exclusivo de
+    // esa pestaña hasta que se publique por primera vez.
+    const upcomingSlugs = new Set(UPCOMING_PRODUCTS.map(p => p.slug));
+    const rows = data.filter(p => p.published_once || !upcomingSlugs.has(p.slug));
+
+    rows.forEach(p => {
       const variants = {};
       (p.product_variants || []).forEach(v => { variants[v.size] = v; });
       const total = SIZE_ORDER.reduce((sum, s) => sum + (variants[s] ? variants[s].stock_on_hand : 0), 0);
@@ -552,7 +560,10 @@
       if (isActive && !confirm(`¿Bajar "${name}" del catálogo público? Dejará de verse en la página, pero el stock e inventario no se pierden.`)) return;
 
       toggleBtn.disabled = true;
-      const { error } = await client.from('products').update({ active: !isActive }).eq('id', toggleBtn.dataset.productId);
+      // published_once:true también aquí (no solo al Publicar desde
+      // "Próximos drops") por si algún día se publica algo desde Inventario
+      // directamente — nunca debe volver a aparecer como borrador pendiente.
+      const { error } = await client.from('products').update({ active: !isActive, published_once: true }).eq('id', toggleBtn.dataset.productId);
       toggleBtn.disabled = false;
 
       if (error) { showMsg(msgEl, 'Error actualizando: ' + error.message, 'error'); return; }
@@ -587,7 +598,7 @@
     const slugs = UPCOMING_PRODUCTS.map(p => p.slug);
     const { data, error } = await client
       .from('products')
-      .select('slug, regular_price, active, product_variants(size, stock_on_hand)')
+      .select('slug, regular_price, active, published_once, product_variants(size, stock_on_hand)')
       .in('slug', slugs);
 
     if (error) { showMsg(msgEl, 'Error cargando: ' + error.message, 'error'); return; }
@@ -595,10 +606,14 @@
     const bySlug = {};
     (data || []).forEach(p => { bySlug[p.slug] = p; });
 
-    // Una vez publicada (active === true), la prenda se maneja desde
-    // "Inventario" — ya no se lista aquí, para que no parezca que sigue
-    // pendiente cuando ya está contando como parte del inventario real.
-    const pending = UPCOMING_PRODUCTS.filter(item => bySlug[item.slug]?.active !== true);
+    // "Guardar" deja una fila en products con active=false y
+    // published_once=false — sigue siendo un borrador editable aquí mismo.
+    // "Publicar" pone active=true y published_once=true, y a partir de ahí
+    // la prenda pasa a manejarse para siempre desde "Inventario" (incluso
+    // si luego se "Baja del catálogo" ahí, que solo pone active=false sin
+    // tocar published_once) — por eso se compara contra published_once y
+    // no contra active ni contra la sola existencia de la fila.
+    const pending = UPCOMING_PRODUCTS.filter(item => bySlug[item.slug]?.published_once !== true);
 
     if (!pending.length) {
       tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink-soft);">Todos los "Próximos drops" ya están publicados — revisa la pestaña "Inventario".</td></tr>';
@@ -616,20 +631,27 @@
         `<td><input type="number" min="0" class="stock-input" data-size="${s}" value="${variants[s] ?? 0}"></td>`
       ).join('');
 
+      const isSaved = !!existing; // ya tiene fila guardada (active=false, published_once=false)
+
       tr.innerHTML = `
         <td>${item.name}</td>
         <td><input type="number" min="0" step="0.01" class="stock-input" style="width:80px;" data-price value="${priceVal}" placeholder="$"></td>
         ${sizeCells}
-        <td><span class="badge badge-pending">Sin publicar</span></td>
-        <td><button class="publish-btn" data-slug="${item.slug}" data-name="${item.name}">Publicar</button></td>
+        <td><span class="badge badge-pending">${isSaved ? 'Guardado, sin publicar' : 'Sin publicar'}</span></td>
+        <td class="row" style="gap:6px; flex-wrap:nowrap;">
+          <button class="secondary save-draft-btn" data-slug="${item.slug}" data-name="${item.name}">Guardar</button>
+          <button class="publish-btn" data-slug="${item.slug}" data-name="${item.name}">Publicar</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
   document.getElementById('upcomingBody').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.publish-btn');
-    if (!btn) return;
+    const publishBtn = e.target.closest('.publish-btn');
+    const saveBtn = e.target.closest('.save-draft-btn');
+    if (!publishBtn && !saveBtn) return;
+    const btn = publishBtn || saveBtn;
     const tr = btn.closest('tr');
     const msgEl = document.getElementById('upcomingMsg');
     const slug = btn.dataset.slug;
@@ -637,7 +659,10 @@
     const priceInput = tr.querySelector('[data-price]');
     const price = parseFloat(priceInput.value);
 
-    if (isNaN(price) || price <= 0) {
+    // Publicar sí exige un precio válido (va a verse en el catálogo
+    // público). Guardar no — es solo para no perder lo que ya escribiste
+    // mientras decides, así que acepta precio vacío o en $0 por ahora.
+    if (publishBtn && (isNaN(price) || price <= 0)) {
       showMsg(msgEl, `Ponle un precio válido a "${name}" antes de publicar.`, 'error');
       return;
     }
@@ -650,15 +675,22 @@
     btn.disabled = true;
     showMsg(msgEl, '', null);
 
+    const productPayload = {
+      slug, name, category: 'T-shirt', sale_mode: 'in_stock',
+      regular_price: isNaN(price) ? 0 : price,
+      active: !!publishBtn
+    };
+    if (publishBtn) productPayload.published_once = true;
+
     const { data: prod, error: pErr } = await client
       .from('products')
-      .upsert({ slug, name, category: 'T-shirt', regular_price: price, sale_mode: 'in_stock', active: true }, { onConflict: 'slug' })
+      .upsert(productPayload, { onConflict: 'slug' })
       .select()
       .single();
 
     if (pErr) {
       btn.disabled = false;
-      showMsg(msgEl, 'Error publicando: ' + pErr.message, 'error');
+      showMsg(msgEl, (publishBtn ? 'Error publicando: ' : 'Error guardando: ') + pErr.message, 'error');
       return;
     }
 
@@ -668,9 +700,13 @@
     btn.disabled = false;
     if (vErr) { showMsg(msgEl, 'Error guardando tallas: ' + vErr.message, 'error'); return; }
 
-    showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo y ahora se maneja desde "Inventario".`, 'ok');
+    if (publishBtn) {
+      showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo y ahora se maneja desde "Inventario".`, 'ok');
+      viewLoaded.inventario = false; // fuerza recarga de Inventario la próxima vez que se visite esa pestaña
+    } else {
+      showMsg(msgEl, `"${name}" se guardó como borrador — sigue sin publicarse ni afectar el catálogo.`, 'ok');
+    }
     loadUpcoming();
-    viewLoaded.inventario = false; // fuerza recarga de Inventario la próxima vez que se visite esa pestaña
   });
 
   // ---- Agregar producto nuevo (sin foto/tarjeta todavía) ----
@@ -746,7 +782,7 @@
     const knownSlugs = UPCOMING_PRODUCTS.map(p => p.slug);
     const { data, error } = await client
       .from('products')
-      .select('slug, name, category, regular_price, product_variants(size, stock_on_hand)')
+      .select('id, slug, name, category, regular_price, product_variants(size, stock_on_hand)')
       .eq('active', false)
       .order('created_at', { ascending: false });
 
@@ -767,10 +803,31 @@
         <td>${variants.M ?? 0}</td>
         <td>${variants.L ?? 0}</td>
         <td>${variants.XL ?? 0}</td>
+        <td><button class="delete-draft-btn" title="Borrar" data-product-id="${p.id}" data-name="${p.name}">✕</button></td>
       `;
       tbody.appendChild(tr);
     });
   }
+
+  document.getElementById('draftsBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.delete-draft-btn');
+    if (!btn) return;
+    const msgEl = document.getElementById('draftsMsg');
+    const name = btn.dataset.name;
+    if (!confirm(`¿Borrar "${name}"? Ya no podrás recuperarlo, tendrás que volver a escribirlo si cambias de opinión.`)) return;
+
+    btn.disabled = true;
+    // Borra primero las tallas (product_variants) y luego el producto —
+    // no asumimos que la base de datos tenga borrado en cascada configurado.
+    const { error: vErr } = await client.from('product_variants').delete().eq('product_id', btn.dataset.productId);
+    if (vErr) { showMsg(msgEl, 'Error borrando tallas: ' + vErr.message, 'error'); btn.disabled = false; return; }
+
+    const { error: pErr } = await client.from('products').delete().eq('id', btn.dataset.productId);
+    if (pErr) { showMsg(msgEl, 'Error borrando: ' + pErr.message, 'error'); btn.disabled = false; return; }
+
+    showMsg(msgEl, `"${name}" se borró.`, 'ok');
+    loadDrafts();
+  });
 
   // ---- Descargar CSV (conciliación bancaria) ----
   const DEPOSIT_RATIO = 0.5; // debe coincidir con v_deposit_ratio en create_purchase_request
