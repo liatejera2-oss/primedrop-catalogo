@@ -515,10 +515,10 @@
   </div>
 </section>
 
-<div class="section-head">
+<div class="section-head" id="upcomingSectionHead">
   <div class="section-title">Próximos drops</div>
 </div>
-<section class="upcoming-section">
+<section class="upcoming-section" id="upcomingSection">
   <p class="upcoming-intro">Nuevas piezas se incorporarán a la selección. Síguenos en Instagram para conocer primero cada lanzamiento.</p>
   <div class="grid">
     
@@ -791,20 +791,51 @@
 
 <script>
   const buttons = document.querySelectorAll('.filter-btn');
-  const cards = document.querySelectorAll('#grid .card');
   const statusEl = document.getElementById('filterStatus');
+  let activeFilter = 'all';
+
+  // NOTA: se re-consulta '#grid .card' cada vez (en vez de guardar una
+  // sola vez el NodeList) porque productos de "Próximos drops" pueden
+  // moverse dentro de #grid dinámicamente al publicarse (ver
+  // migrateUpcomingCards más abajo) — un NodeList guardado una sola vez
+  // no incluiría esas tarjetas nuevas.
+  function getGridCards() { return document.querySelectorAll('#grid .card'); }
+
+  function applyFilter(filter) {
+    activeFilter = filter;
+    let shown = 0;
+    getGridCards().forEach(card => {
+      const show = filter === 'all' || card.dataset.cat === filter;
+      card.style.display = show ? '' : 'none';
+      if (show) shown++;
+    });
+    statusEl.textContent = `Mostrando ${shown} producto${shown === 1 ? '' : 's'}`;
+  }
+
+  // Recalcula los contadores "(N)" de cada botón de filtro a partir de
+  // las tarjetas reales del grid, y vuelve a aplicar el filtro activo.
+  // Se expone en window para que la carga de inventario en vivo (más
+  // abajo) la llame después de mover tarjetas recién publicadas.
+  function refreshFilterCounts() {
+    const counts = { all: 0 };
+    getGridCards().forEach(card => {
+      counts.all++;
+      const cat = card.dataset.cat;
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    });
+    buttons.forEach(btn => {
+      const span = btn.querySelector('.filter-count');
+      if (span) span.textContent = `(${counts[btn.dataset.filter] || 0})`;
+    });
+    applyFilter(activeFilter);
+  }
+  window.__pdRefreshFilterCounts = refreshFilterCounts;
+
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       buttons.forEach(b => b.setAttribute('aria-pressed', 'false'));
       btn.setAttribute('aria-pressed', 'true');
-      const filter = btn.dataset.filter;
-      let shown = 0;
-      cards.forEach(card => {
-        const show = filter === 'all' || card.dataset.cat === filter;
-        card.style.display = show ? '' : 'none';
-        if (show) shown++;
-      });
-      statusEl.textContent = `Mostrando ${shown} producto${shown === 1 ? '' : 's'}`;
+      applyFilter(btn.dataset.filter);
     });
   });
   document.querySelectorAll('.carousel').forEach(carousel => {
@@ -1065,6 +1096,44 @@
       renderAllStatusTags();
       renderAllPrices();
       renderAllPurchaseButtons();
+      migrateUpcomingCards();
+    }
+
+    // Si una prenda de "Próximos drops" ya fue publicada (tiene fila
+    // activa en la base de datos, con o sin stock), su tarjeta debe
+    // salir de la sección "Próximos drops" y unirse al resto de las
+    // prendas en el grid principal — no basta con re-etiquetarla en el
+    // mismo lugar como se hacía antes.
+    function migrateUpcomingCards() {
+      const mainGrid = document.getElementById('grid');
+      const upcomingSection = document.getElementById('upcomingSection');
+      const upcomingSectionHead = document.getElementById('upcomingSectionHead');
+      if (!mainGrid || !upcomingSection) return;
+
+      let moved = false;
+      document.querySelectorAll('.upcoming-card').forEach(card => {
+        const tag = card.querySelector('[data-stock-status]');
+        if (!tag) return;
+        const slug = tag.dataset.stockStatus;
+        if (!catalog[slug]) return; // sigue sin publicarse, se queda donde está
+
+        card.classList.remove('upcoming-card');
+        if (!card.dataset.cat) card.dataset.cat = 'jerseys'; // los 7 próximos drops actuales son jerseys de fútbol
+        mainGrid.appendChild(card);
+        moved = true;
+      });
+
+      if (!moved) return;
+
+      // Si ya no queda ninguna tarjeta en "Próximos drops", oculta toda
+      // la sección (encabezado incluido) en vez de dejarla vacía.
+      const remaining = upcomingSection.querySelectorAll('.upcoming-card').length;
+      if (remaining === 0) {
+        upcomingSection.style.display = 'none';
+        if (upcomingSectionHead) upcomingSectionHead.style.display = 'none';
+      }
+
+      if (window.__pdRefreshFilterCounts) window.__pdRefreshFilterCounts();
     }
 
     function renderAllSizeRows() {

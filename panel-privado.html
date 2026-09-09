@@ -131,11 +131,11 @@
     <div id="viewInventario" class="view-section hidden">
       <div class="card">
         <h2>Inventario por producto</h2>
-        <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago.</p>
+        <p class="sub" style="margin-bottom:14px;">Los cambios se guardan al presionar "Guardar" en cada fila. Esto corrige existencias manualmente — no reemplaza el descuento automático al confirmar un pago. La columna "Catálogo" controla si la prenda se ve en la página pública, sin importar el stock que tenga.</p>
         <div id="inventoryMsg"></div>
         <table>
           <thead>
-            <tr><th>Producto</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th></th></tr>
+            <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th></th></tr>
           </thead>
           <tbody id="inventoryBody"></tbody>
         </table>
@@ -149,6 +149,8 @@
           Prepara aquí el precio y las tallas de las prendas que aún no están en tu inventario.
           Cuando te lleguen, ponles precio y existencias y dale <strong>"Publicar"</strong> — aparecerán
           automáticamente como "Disponible" en el catálogo público, sin que yo tenga que tocar código.
+          Una vez publicada, la prenda desaparece de esta lista y pasa a manejarse desde
+          <strong>"Inventario"</strong> (precio, tallas, y si quieres bajarla del catálogo).
         </p>
         <div id="upcomingMsg"></div>
         <table>
@@ -466,7 +468,7 @@
 
     const { data, error } = await client
       .from('products')
-      .select('id, name, sale_mode, product_variants(id, size, stock_on_hand)')
+      .select('id, name, sale_mode, regular_price, active, product_variants(id, size, stock_on_hand)')
       .order('name');
 
     if (error) { showMsg(msgEl, 'Error cargando inventario: ' + error.message, 'error'); return; }
@@ -484,41 +486,82 @@
       }).join('');
 
       let statusLabel = p.sale_mode === 'preorder' ? 'Por encargo' : (total <= 0 ? '<span class="low-stock">Agotado</span>' : (total === 1 ? '<span class="low-stock">Última unidad</span>' : 'Disponible'));
+      const catalogBadge = p.active
+        ? '<span class="badge badge-paid">Publicado</span>'
+        : '<span class="badge badge-cancelled">Oculto</span>';
 
       tr.innerHTML = `
         <td>${p.name}</td>
+        <td><input type="number" min="0" step="0.01" class="stock-input" style="width:80px;" data-price-input value="${p.regular_price ?? ''}" placeholder="$"></td>
         ${sizeCells}
         <td>${total}</td>
         <td>${statusLabel}</td>
-        <td><button class="secondary save-stock-btn" data-product-id="${p.id}">Guardar</button></td>
+        <td>${catalogBadge}</td>
+        <td class="row" style="gap:6px; flex-wrap:nowrap;">
+          <button class="secondary save-stock-btn" data-product-id="${p.id}">Guardar</button>
+          <button class="${p.active ? 'danger' : 'secondary'} toggle-active-btn" data-product-id="${p.id}" data-active="${p.active ? '1' : '0'}" data-name="${p.name}">${p.active ? 'Bajar del catálogo' : 'Publicar'}</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
   document.getElementById('inventoryBody').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.save-stock-btn');
-    if (!btn) return;
-    const tr = btn.closest('tr');
-    const inputs = tr.querySelectorAll('.stock-input');
+    const saveBtn = e.target.closest('.save-stock-btn');
+    const toggleBtn = e.target.closest('.toggle-active-btn');
     const msgEl = document.getElementById('inventoryMsg');
-    btn.disabled = true;
 
-    const updates = Array.from(inputs).map(inp => ({
-      id: inp.dataset.variantId,
-      stock_on_hand: Math.max(0, parseInt(inp.value, 10) || 0)
-    }));
+    if (saveBtn) {
+      const tr = saveBtn.closest('tr');
+      const inputs = tr.querySelectorAll('.stock-input[data-variant-id]');
+      const priceInput = tr.querySelector('[data-price-input]');
+      saveBtn.disabled = true;
 
-    let failed = null;
-    for (const u of updates) {
-      const { error } = await client.from('product_variants').update({ stock_on_hand: u.stock_on_hand }).eq('id', u.id);
-      if (error) { failed = error; break; }
+      const updates = Array.from(inputs).map(inp => ({
+        id: inp.dataset.variantId,
+        stock_on_hand: Math.max(0, parseInt(inp.value, 10) || 0)
+      }));
+
+      let failed = null;
+      for (const u of updates) {
+        const { error } = await client.from('product_variants').update({ stock_on_hand: u.stock_on_hand }).eq('id', u.id);
+        if (error) { failed = error; break; }
+      }
+
+      if (!failed && priceInput) {
+        const price = parseFloat(priceInput.value);
+        if (!isNaN(price) && price > 0) {
+          const { error: priceErr } = await client.from('products').update({ regular_price: price }).eq('id', saveBtn.dataset.productId);
+          if (priceErr) failed = priceErr;
+        }
+      }
+
+      saveBtn.disabled = false;
+      if (failed) { showMsg(msgEl, 'Error guardando: ' + failed.message, 'error'); return; }
+      showMsg(msgEl, 'Inventario actualizado.', 'ok');
+      loadInventory();
+      return;
     }
 
-    btn.disabled = false;
-    if (failed) { showMsg(msgEl, 'Error guardando: ' + failed.message, 'error'); return; }
-    showMsg(msgEl, 'Inventario actualizado.', 'ok');
-    loadInventory();
+    if (toggleBtn) {
+      const isActive = toggleBtn.dataset.active === '1';
+      const name = toggleBtn.dataset.name;
+      // Bajar del catálogo no requiere precio ni tallas — es una acción
+      // independiente para poder quitar cualquier prenda de la página
+      // pública en cualquier momento, sin que el formulario de precio la bloquee.
+      if (isActive && !confirm(`¿Bajar "${name}" del catálogo público? Dejará de verse en la página, pero el stock e inventario no se pierden.`)) return;
+
+      toggleBtn.disabled = true;
+      const { error } = await client.from('products').update({ active: !isActive }).eq('id', toggleBtn.dataset.productId);
+      toggleBtn.disabled = false;
+
+      if (error) { showMsg(msgEl, 'Error actualizando: ' + error.message, 'error'); return; }
+      showMsg(msgEl, isActive ? `"${name}" se bajó del catálogo público.` : `"${name}" se publicó en el catálogo público.`, 'ok');
+      loadInventory();
+      // Si esta prenda también aparece en "Próximos drops", refresca esa
+      // vista para que se mueva de una lista a la otra si el admin la visita.
+      viewLoaded.proximos = false;
+    }
   });
 
   // ---- Próximos drops: preparar precio/tallas y publicar al catálogo ----
@@ -552,11 +595,20 @@
     const bySlug = {};
     (data || []).forEach(p => { bySlug[p.slug] = p; });
 
-    UPCOMING_PRODUCTS.forEach(item => {
+    // Una vez publicada (active === true), la prenda se maneja desde
+    // "Inventario" — ya no se lista aquí, para que no parezca que sigue
+    // pendiente cuando ya está contando como parte del inventario real.
+    const pending = UPCOMING_PRODUCTS.filter(item => bySlug[item.slug]?.active !== true);
+
+    if (!pending.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink-soft);">Todos los "Próximos drops" ya están publicados — revisa la pestaña "Inventario".</td></tr>';
+      return;
+    }
+
+    pending.forEach(item => {
       const existing = bySlug[item.slug];
       const variants = {};
       (existing?.product_variants || []).forEach(v => { variants[v.size] = v.stock_on_hand; });
-      const isPublished = existing?.active === true;
 
       const tr = document.createElement('tr');
       const priceVal = existing?.regular_price ?? '';
@@ -568,8 +620,8 @@
         <td>${item.name}</td>
         <td><input type="number" min="0" step="0.01" class="stock-input" style="width:80px;" data-price value="${priceVal}" placeholder="$"></td>
         ${sizeCells}
-        <td>${isPublished ? '<span class="badge badge-paid">Publicado</span>' : '<span class="badge badge-pending">Sin publicar</span>'}</td>
-        <td><button class="${isPublished ? 'secondary' : ''} publish-btn" data-slug="${item.slug}" data-name="${item.name}">${isPublished ? 'Actualizar' : 'Publicar'}</button></td>
+        <td><span class="badge badge-pending">Sin publicar</span></td>
+        <td><button class="publish-btn" data-slug="${item.slug}" data-name="${item.name}">Publicar</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -616,8 +668,9 @@
     btn.disabled = false;
     if (vErr) { showMsg(msgEl, 'Error guardando tallas: ' + vErr.message, 'error'); return; }
 
-    showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo.`, 'ok');
+    showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo y ahora se maneja desde "Inventario".`, 'ok');
     loadUpcoming();
+    viewLoaded.inventario = false; // fuerza recarga de Inventario la próxima vez que se visite esa pestaña
   });
 
   // ---- Agregar producto nuevo (sin foto/tarjeta todavía) ----
