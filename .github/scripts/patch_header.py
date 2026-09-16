@@ -4,10 +4,6 @@ path = Path("index.html")
 html = path.read_text(encoding="utf-8")
 original = html
 
-old_nav = '''<div class="header-links">
-    <a class="catalog-link" href="#catalogo" aria-current="page">Catálogo</a>
-    <a class="header-cta" href="https://instagram.com/primedrop.pa" target="_blank" rel="noopener noreferrer">Comprar en Instagram ↗</a>
-  </div>'''
 new_nav = '''<button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Abrir menú de navegación">
     <span class="menu-toggle-label">Menú</span>
     <span class="menu-toggle-icon" aria-hidden="true"><span></span><span></span></span>
@@ -18,16 +14,26 @@ new_nav = '''<button class="menu-toggle" type="button" aria-expanded="false" ari
     <a class="header-cta" href="https://www.instagram.com/primedrop.pa/" target="_blank" rel="noopener noreferrer">Comprar por Instagram ↗</a>
   </div>'''
 
-if old_nav not in html:
-    raise SystemExit("Expected header navigation block was not found; aborting without changes.")
-html = html.replace(old_nav, new_nav, 1)
+nav_start = html.find('<div class="header-links">')
+if nav_start == -1:
+    raise SystemExit("Header navigation start was not found; aborting without changes.")
+nav_end = html.find('</div>', nav_start)
+if nav_end == -1:
+    raise SystemExit("Header navigation end was not found; aborting without changes.")
+nav_end += len('</div>')
+current_nav = html[nav_start:nav_end]
+if 'href="#catalogo"' not in current_nav or 'primedrop.pa' not in current_nav:
+    raise SystemExit("Header navigation block did not match expected contents; aborting without changes.")
+html = html[:nav_start] + new_nav + html[nav_end:]
 
-old_css = '''.header-links { display: flex; align-items: center; gap: 24px; }
-  .catalog-link { position: relative; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none; padding: 8px 2px; transition: color .2s ease; }
-  .catalog-link::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 1.5px; background: var(--accent); }
-  .catalog-link:hover, .catalog-link:focus-visible { color: var(--ink); }
-  .header-cta { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 7px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: #fff; text-decoration: none; background: var(--ink); padding: 10px 18px; border-radius: var(--radius-pill); transition: transform .2s ease, background .2s ease; min-height: 40px; }
-  .header-cta:hover, .header-cta:focus-visible { background: #000; transform: translateY(-1px); }'''
+css_start_marker = '.header-links { display: flex; align-items: center; gap: 24px; }'
+css_end_marker = '.header-cta:hover, .header-cta:focus-visible { background: #000; transform: translateY(-1px); }'
+css_start = html.find(css_start_marker)
+css_end = html.find(css_end_marker, css_start)
+if css_start == -1 or css_end == -1:
+    raise SystemExit("Expected header CSS range was not found; aborting without changes.")
+css_end += len(css_end_marker)
+
 new_css = '''.header-links { display: flex; align-items: center; gap: 24px; }
   .catalog-link, .drops-link { position: relative; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none; padding: 8px 2px; transition: color .2s ease, background .2s ease; }
   .catalog-link::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 1.5px; background: var(--accent); }
@@ -50,10 +56,7 @@ new_css = '''.header-links { display: flex; align-items: center; gap: 24px; }
     .catalog-link:hover, .catalog-link:focus-visible, .drops-link:hover, .drops-link:focus-visible { background: var(--bg-alt); }
     .header-cta { justify-content: center; margin-top: 4px; }
   }'''
-
-if old_css not in html:
-    raise SystemExit("Expected header CSS block was not found; aborting without changes.")
-html = html.replace(old_css, new_css, 1)
+html = html[:css_start] + new_css + html[css_end:]
 
 script = '''
 <script>
