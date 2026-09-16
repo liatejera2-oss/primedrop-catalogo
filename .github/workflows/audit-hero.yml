@@ -1,0 +1,22 @@
+name: Audit PRIME DROP Hero
+
+on:
+  push:
+    branches:
+      - intervention/02-hero-positioning
+    paths:
+      - .github/workflows/audit-hero.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit-hero:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout intervention branch
+        uses: actions/checkout@v4
+        with:
+          ref: intervention/02-hero-positioning
+      - name: Print Hero excerpt
+        run: python .github/scripts/audit_hero.py
