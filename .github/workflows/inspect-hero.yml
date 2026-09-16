@@ -1,0 +1,46 @@
+name: Inspect PRIME DROP hero
+
+on:
+  push:
+    branches:
+      - intervention/02-hero-positioning
+    paths:
+      - .github/workflows/inspect-hero.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/02-hero-positioning
+      - name: Inspect hero markup and styles
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text(encoding='utf-8')
+          print('=== HERO MARKUP ===')
+          for needle in ['<section class="hero', '<div class="hero-wrap', 'class="hero-content"']:
+              i = html.find(needle)
+              if i != -1:
+                  j = html.find('</section>', i)
+                  snippet = html[i:(j+10 if j!=-1 else i+5000)]
+                  snippet = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '[BASE64_IMAGE]', snippet)
+                  print(snippet[:8000])
+                  break
+          print('\n=== HERO CSS ===')
+          i = html.find('.hero-wrap')
+          if i != -1:
+              css = html[max(0,i-500):i+7000]
+              css = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '[BASE64_IMAGE]', css)
+              print(css)
+          print('\n=== HERO TEXT CANDIDATES ===')
+          for m in re.finditer(r'<(?:h1|h2|p|a)[^>]*class="[^"]*hero[^"]*"[^>]*>(.*?)</(?:h1|h2|p|a)>', html, re.S|re.I):
+              text = re.sub(r'<[^>]+>', '', m.group(1)).strip()
+              print(text)
+          PY
