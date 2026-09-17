@@ -2,7 +2,7 @@ name: PRIME DROP add practice cleanup
 on:
   push:
     branches: [intervention/12-ux-finance-analysis]
-    paths: ['.github/scripts/add_practice_cleanup.py', '.github/workflows/add-practice-cleanup.yml']
+    paths: ['.github/scripts/add_practice_cleanup_v2.py', '.github/workflows/add-practice-cleanup.yml']
 permissions:
   contents: write
 jobs:
@@ -13,7 +13,7 @@ jobs:
         with:
           ref: intervention/12-ux-finance-analysis
       - name: Apply practice cleanup controls
-        run: python .github/scripts/add_practice_cleanup.py
+        run: python .github/scripts/add_practice_cleanup_v2.py
       - name: Validate and commit
         run: |
           git diff --check
