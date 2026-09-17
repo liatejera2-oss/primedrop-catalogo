@@ -209,8 +209,9 @@
   .purchase-field { margin-bottom: 18px; }
   .purchase-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
   .purchase-colors, .purchase-sizes { display: flex; gap: 8px; flex-wrap: wrap; }
-  .purchase-color-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
-  .purchase-color-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .purchase-color-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-height: 44px; min-width: 104px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+  .purchase-color-btn:hover { border-color: #9ca3af; }
+  .purchase-color-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: 0 0 0 2px rgba(17,24,39,.08); }
   .purchase-size-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-width: 44px; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
   .purchase-size-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
   .purchase-size-btn.backorder { border-style: dashed; }
@@ -1170,7 +1171,7 @@
     function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
 
     function totalStock(product) {
-      if (product.uses_color_variants && product.colors && product.colors.length) {
+      if (product.uses_color_variants && product.color_stock_mode !== 'shared_size' && product.colors && product.colors.length) {
         return product.colors.reduce((sum, color) => sum + SIZE_ORDER.reduce((inner, size) => {
           const variant = product.colorVariants[color]?.[size];
           return inner + (variant ? variant.stock_on_hand : 0);
@@ -1189,6 +1190,9 @@
     }
 
     function stockForSelection(product, size, color = null) {
+      if (product.uses_color_variants && product.color_stock_mode === 'shared_size') {
+        return product.variants[size]?.stock_on_hand ?? 0;
+      }
       if (product.uses_color_variants && product.colors && product.colors.length) {
         if (color) return product.colorVariants[color]?.[size]?.stock_on_hand ?? 0;
         return product.colors.reduce((sum, c) => sum + (product.colorVariants[c]?.[size]?.stock_on_hand ?? 0), 0);
@@ -1199,7 +1203,7 @@
     async function loadCatalog() {
       const { data, error } = await client
         .from('products')
-        .select('id, slug, name, regular_price, preorder_price, sale_mode, active, uses_color_variants, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
+        .select('id, slug, name, regular_price, preorder_price, sale_mode, active, uses_color_variants, color_stock_mode, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
         .eq('active', true);
 
       if (error) {

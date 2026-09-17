@@ -528,7 +528,7 @@
 
     const { data, error } = await client
       .from('products')
-      .select('id, slug, name, sale_mode, regular_price, active, published_once, uses_color_variants, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
+      .select('id, slug, name, sale_mode, regular_price, active, published_once, uses_color_variants, color_stock_mode, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
       .order('name');
 
     if (error) { showMsg(msgEl, 'Error cargando inventario: ' + error.message, 'error'); return; }
