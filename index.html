@@ -846,17 +846,17 @@
       <h3 id="purchaseSuccessCode">PD-2026-0000</h3>
 
       <ol class="purchase-steps">
-        <li id="purchaseCopiedNote">Ya copiamos tu mensaje.</li>
-        <li>Se va a abrir Instagram en una pestaña nueva.</li>
-        <li>Toca el cuadro de mensaje y <strong>mantén presionado → Pegar</strong>.</li>
-        <li>Envíalo — Prime Drop te confirma disponibilidad, pago y entrega ahí mismo.</li>
+        <li id="purchaseCopiedNote">Tu mensaje está listo y ya lo copiamos.</li>
+        <li>Abre <strong>@primedrop.pa</strong> en Instagram.</li>
+        <li>Pega el mensaje en el chat y envíalo.</li>
+        <li>Prime Drop te confirmará pago y entrega por Instagram.</li>
       </ol>
 
       <div class="purchase-message-box" id="purchaseMessageBox"></div>
       <button class="purchase-copy-again" id="purchaseCopyAgain">Copiar mensaje de nuevo</button>
 
       <p class="purchase-disclaimer">Esta solicitud no reserva la pieza hasta que Prime Drop confirme el pago.</p>
-      <a class="purchase-ig-link" id="purchaseIgLink" href="https://www.instagram.com/primedrop.pa/" target="_blank" rel="noopener noreferrer">Abrir Instagram ↗</a>
+      <a class="purchase-ig-link" id="purchaseIgLink" href="https://www.instagram.com/primedrop.pa/" target="_blank" rel="noopener noreferrer">Abrir @primedrop.pa ↗</a>
       <button class="purchase-submit purchase-submit-secondary" id="purchaseCloseSuccess">Cerrar</button>
     </div>
   </div>
@@ -1662,24 +1662,28 @@
       }
 
       const paymentLine = row.payment_mode === 'deposit'
-        ? `Forma de pago: Abono (50%) — pago ahora: ${moneyFmt(row.amount_due_now)} · saldo contra-entrega: ${moneyFmt(row.balance_due)}`
-        : `Forma de pago: Pago completo — ${moneyFmt(row.amount_due_now)}`;
+        ? `Forma de pago: Abono (50%) · Pagas ahora: ${moneyFmt(row.amount_due_now)} · Saldo contra entrega: ${moneyFmt(row.balance_due)}`
+        : 'Forma de pago: Pago completo';
 
-      const modalidadLine = row.fulfillment_type === 'backorder'
-        ? 'Modalidad: Por pedido (no hay en inventario ahora, se pedirá especialmente)'
-        : `Modalidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'Disponible'}`;
+      const availabilityLine = row.fulfillment_type === 'backorder'
+        ? 'Disponibilidad: Por pedido'
+        : `Disponibilidad: ${row.sale_mode === 'preorder' ? 'Por encargo' : 'En stock'}`;
 
-      const message = 'Hola, Prime Drop. Creé una solicitud desde el catálogo.\n\n' +
-        `Código: ${row.order_number}\n` +
+      const unitPriceLine = Number(row.quantity) > 1
+        ? `Precio unitario: ${moneyFmt(row.unit_price)}\n`
+        : '';
+
+      const message = 'Hola, Prime Drop. Quiero comprar esta pieza del catálogo.\n\n' +
+        `Solicitud: ${row.order_number}\n` +
         `Producto: ${row.product_name}\n` +
         (row.color ? `Color: ${row.color}\n` : '') +
         `Talla: ${row.size}\n` +
         `Cantidad: ${row.quantity}\n` +
-        `Precio unitario: ${moneyFmt(row.unit_price)}\n` +
-        `Total de referencia: ${moneyFmt(row.total_reference)}\n` +
-        `${modalidadLine}\n` +
+        unitPriceLine +
+        `Total: ${moneyFmt(row.total_reference)}\n` +
+        `${availabilityLine}\n` +
         `${paymentLine}\n\n` +
-        '¿Me pueden confirmar disponibilidad, pago y entrega?';
+        '¿Me confirman los datos de pago y entrega para completar la compra?';
 
       lastMessage = message;
       const copied = await copyMessage(message);
@@ -1688,8 +1692,8 @@
       stepSuccess.hidden = false;
       successCodeEl.textContent = row.order_number;
       copiedNoteEl.textContent = copied
-        ? 'Ya copiamos tu mensaje.'
-        : 'No se pudo copiar automáticamente — selecciona el texto de abajo y cópialo a mano.';
+        ? 'Tu mensaje está listo y ya lo copiamos.'
+        : 'No se pudo copiar automáticamente — selecciona el mensaje de abajo y cópialo manualmente.';
       messageBoxEl.textContent = message;
 
       window.open(PRIME_DROP_CONFIG.INSTAGRAM_URL, '_blank', 'noopener');
