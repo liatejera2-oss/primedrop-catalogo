@@ -1,0 +1,31 @@
+name: PRIME DROP Point 8 transition fix
+
+on:
+  push:
+    branches:
+      - intervention/08-upcoming-to-catalog
+    paths:
+      - .github/workflows/patch-point8.yml
+      - .github/scripts/patch_point8.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/08-upcoming-to-catalog
+      - name: Apply transition fix
+        run: python .github/scripts/patch_point8.py
+      - name: Validate and commit
+        run: |
+          git diff --check
+          git diff --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html panel-privado.html
+          git commit -m "Fix upcoming drop publication transition"
+          git push origin HEAD:intervention/08-upcoming-to-catalog
