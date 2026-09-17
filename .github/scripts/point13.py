@@ -1,0 +1,69 @@
+from pathlib import Path
+
+p = Path('index.html')
+s = p.read_text(encoding='utf-8')
+
+old_css = """  .how-to-buy { max-width: 1200px; margin: 0 auto; padding: 0 24px var(--space-6); }
+  .how-to-buy h2 { font-size: 19px; font-weight: 700; text-transform: none; letter-spacing: -0.01em; margin-bottom: 20px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .step { background: var(--bg-alt); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 20px; }
+  .step-num { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.02em; margin-bottom: 8px; }
+  .step p { font-size: 14px; color: var(--ink); line-height: 1.5; font-weight: 400; }
+"""
+new_css = """  .how-to-buy { max-width: 1200px; margin: 0 auto; padding: 0 24px var(--space-6); }
+  .how-to-head { margin-bottom: 20px; }
+  .how-to-buy h2 { font-size: 19px; font-weight: 700; text-transform: none; letter-spacing: -0.01em; margin-bottom: 6px; }
+  .how-to-intro { max-width: 620px; font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .step { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 19px 20px; }
+  .step-num { font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.05em; margin-bottom: 12px; }
+  .step-copy strong { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 5px; }
+  .step-copy p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; font-weight: 400; }
+  .how-to-note { margin-top: 12px; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
+"""
+assert old_css in s, 'how-to CSS anchor missing'
+s = s.replace(old_css, new_css, 1)
+
+old_html = """<section class="how-to-buy">
+  <h2>¿Cómo comprar?</h2>
+  <div class="steps">
+    <div class="step"><div class="step-num">01</div><p>Elige tu pieza, talla y color cuando aplique.</p></div>
+    <div class="step"><div class="step-num">02</div><p>Prepara tu solicitud desde el catálogo.</p></div>
+    <div class="step"><div class="step-num">03</div><p>Envía el mensaje a @primedrop.pa para confirmar pago y entrega.</p></div>
+  </div>
+</section>"""
+new_html = """<section class="how-to-buy" aria-labelledby="howToBuyTitle">
+  <div class="how-to-head">
+    <h2 id="howToBuyTitle">¿Cómo comprar?</h2>
+    <p class="how-to-intro">Elige en el catálogo y finaliza tu compra directamente con Prime Drop por Instagram.</p>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="step-num">01</div><div class="step-copy"><strong>Elige tu pieza</strong><p>Selecciona talla, color si aplica, cantidad y forma de pago.</p></div></div>
+    <div class="step"><div class="step-num">02</div><div class="step-copy"><strong>Prepara el mensaje</strong><p>El catálogo registra tu selección y deja listo el mensaje con los datos de tu compra.</p></div></div>
+    <div class="step"><div class="step-num">03</div><div class="step-copy"><strong>Continúa en Instagram</strong><p>Abre @primedrop.pa, pega el mensaje y coordinamos contigo pago y entrega.</p></div></div>
+  </div>
+  <p class="how-to-note">La pieza se aparta cuando Prime Drop confirma tu pago o abono.</p>
+</section>"""
+assert old_html in s, 'how-to HTML anchor missing'
+s = s.replace(old_html, new_html, 1)
+
+old_mobile = """    .steps { grid-template-columns: 1fr; gap: 12px; }
+    .how-to-buy h2 { font-size: 18px; margin-bottom: 16px; }
+    .step { padding: 18px; }
+"""
+new_mobile = """    .steps { grid-template-columns: 1fr; gap: 10px; }
+    .how-to-head { margin-bottom: 16px; }
+    .how-to-buy h2 { font-size: 18px; margin-bottom: 5px; }
+    .how-to-intro { font-size: 13px; }
+    .step { padding: 17px 18px; }
+    .step-num { margin-bottom: 9px; }
+    .how-to-note { margin-top: 10px; }
+"""
+assert old_mobile in s, 'how-to mobile anchor missing'
+s = s.replace(old_mobile, new_mobile, 1)
+
+for token in ['¿Cómo comprar?', 'Elige tu pieza', 'Prepara el mensaje', 'Continúa en Instagram', 'La pieza se aparta cuando Prime Drop confirma tu pago o abono.']:
+    assert token in s, token
+assert 'Prepara tu solicitud desde el catálogo.' not in s
+p.write_text(s, encoding='utf-8')
+print('Point 13 patched')
