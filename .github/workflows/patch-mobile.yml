@@ -6,6 +6,7 @@ on:
       - intervention/06-mobile
     paths:
       - .github/workflows/patch-mobile.yml
+      - .github/scripts/patch_mobile.py
 
 permissions:
   contents: write
@@ -28,5 +29,3 @@ jobs:
           git add index.html
           git commit -m "Refine mobile layout and touch behavior"
           git push origin HEAD:intervention/06-mobile
-
-# trigger mobile intervention
