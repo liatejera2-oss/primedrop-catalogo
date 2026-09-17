@@ -1,0 +1,25 @@
+name: PRIME DROP inspect Point 14
+on:
+  push:
+    branches: [intervention/14-inventory]
+    paths: ['.github/workflows/inspect-point14.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/14-inventory
+      - name: Inspect inventory code
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('panel-privado.html').read_text(encoding='utf-8')
+          for key in ['async function loadInventory()', 'saveInventory', 'saveColorVariantBtn', 'disableColorVariantsBtn', 'inventoryBody.addEventListener', 'data-action="save"']:
+              i=s.find(key)
+              if i>=0:
+                  print('\n===== '+key+' =====\n')
+                  print(s[max(0,i-1200):min(len(s),i+9000)])
+          PY
