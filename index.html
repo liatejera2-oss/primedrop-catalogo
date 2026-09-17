@@ -781,9 +781,9 @@
 <section class="how-to-buy">
   <h2>¿Cómo comprar?</h2>
   <div class="steps">
-    <div class="step"><div class="step-num">01</div><p>Elige tu pieza.</p></div>
-    <div class="step"><div class="step-num">02</div><p>Consulta disponibilidad por Instagram.</p></div>
-    <div class="step"><div class="step-num">03</div><p>Coordina tu compra directamente con Prime Drop.</p></div>
+    <div class="step"><div class="step-num">01</div><p>Elige tu pieza, talla y color cuando aplique.</p></div>
+    <div class="step"><div class="step-num">02</div><p>Prepara tu solicitud desde el catálogo.</p></div>
+    <div class="step"><div class="step-num">03</div><p>Envía el mensaje a @primedrop.pa para confirmar pago y entrega.</p></div>
   </div>
 </section>
 
@@ -838,12 +838,13 @@
 
       <p class="purchase-error" id="purchaseError" role="alert" hidden></p>
 
-      <button class="purchase-submit" id="purchaseSubmit">Continuar</button>
+      <button class="purchase-submit" id="purchaseSubmit">Preparar mensaje</button>
     </div>
 
     <div id="purchaseStepSuccess" hidden>
-      <p class="purchase-eyebrow">Solicitud creada</p>
+      <p class="purchase-eyebrow">Mensaje listo</p>
       <h3 id="purchaseSuccessCode">PD-2026-0000</h3>
+      <p class="purchase-instruction">Tu selección quedó registrada. Envía el mensaje a <strong>@primedrop.pa</strong> para continuar la compra.</p>
 
       <ol class="purchase-steps">
         <li id="purchaseCopiedNote">Tu mensaje está listo y ya lo copiamos.</li>
@@ -1535,7 +1536,7 @@
       // Ya no se bloquea el botón por "Agotado": cualquier talla se puede
       // pedir especialmente si no hay existencia (ver selectSize).
       submitBtn.disabled = availableSizes.length === 0;
-      submitBtn.textContent = availableSizes.length === 0 ? 'No disponible' : 'Continuar';
+      submitBtn.textContent = availableSizes.length === 0 ? 'No disponible' : 'Preparar mensaje';
 
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
@@ -1602,6 +1603,10 @@
       setTimeout(() => { copyAgainBtn.textContent = 'Copiar mensaje de nuevo'; }, 2000);
     });
 
+    document.getElementById('purchaseIgLink').addEventListener('click', () => {
+      if (lastMessage) copyMessage(lastMessage);
+    });
+
     submitBtn.addEventListener('click', async () => {
       if (!currentSlug || !currentSize) {
         errorEl.textContent = 'Selecciona una talla.';
@@ -1616,13 +1621,13 @@
       }
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Procesando…';
+      submitBtn.textContent = 'Preparando mensaje…';
       errorEl.hidden = true;
 
       const product = catalog[currentSlug];
       if (product.uses_color_variants && !currentColor) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Continuar';
+        submitBtn.textContent = 'Preparar mensaje';
         errorEl.textContent = 'Selecciona un color.';
         errorEl.hidden = false;
         return;
@@ -1643,7 +1648,7 @@
       const { data, error } = await client.rpc(rpcName, rpcArgs);
 
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Continuar';
+      submitBtn.textContent = 'Preparar mensaje';
 
       if (error) {
         // Cubre, entre otros: talla sin existencia, cantidad mayor al stock,
@@ -1696,8 +1701,9 @@
         : 'No se pudo copiar automáticamente — selecciona el mensaje de abajo y cópialo manualmente.';
       messageBoxEl.textContent = message;
 
-      window.open(PRIME_DROP_CONFIG.INSTAGRAM_URL, '_blank', 'noopener');
-
+      // Instagram se abre únicamente cuando la persona toca el CTA explícito.
+      // Evita ventanas emergentes inesperadas y mantiene claro que la compra
+      // se termina por conversación en @primedrop.pa.
       loadCatalog(); // refresca el stock mostrado (aún no se descontó, pero puede haber cambiado por otra solicitud)
     });
 
