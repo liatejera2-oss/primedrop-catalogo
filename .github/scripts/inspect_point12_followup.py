@@ -1,10 +1,13 @@
 from pathlib import Path
-p=Path('index.html')
-s=p.read_text(encoding='utf-8')
-patterns=['async function loadCatalog','function colorStyleFor','function renderColorOptions','data-product="barca-morado-yamal"','get_published_product_states','product_name','querySelector(\'.product-name\'','product-title']
+s=Path('index.html').read_text(encoding='utf-8')
+patterns=['color-swatch','selectedColor','colorOptions','color-option','colorSwatch','colorStyles','Burgundy','function openPurchase','purchaseColor','modalColor','const COLOR','renderAllPrices','querySelector(\'h3\')']
 for pat in patterns:
     print('\n###',pat)
-    i=s.find(pat)
-    print('index',i)
-    if i>=0:
-        print(s[max(0,i-1200):i+3500])
+    start=0
+    hits=0
+    while True:
+        i=s.find(pat,start)
+        if i<0 or hits>=4: break
+        print('index',i)
+        print(s[max(0,i-700):i+1800])
+        start=i+1; hits+=1
