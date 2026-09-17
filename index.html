@@ -21,6 +21,8 @@
   h1, h2, h3, .display { font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; }
   a { color: inherit; }
   .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .skip-link { position:fixed; top:10px; left:10px; z-index:999; transform:translateY(-160%); background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:700; text-decoration:none; transition:transform .15s ease; }
+  .skip-link:focus { transform:translateY(0); }
 
   header { position: sticky; top: 0; z-index: 50; background: rgba(254,254,254,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--header-text); border-bottom: 1px solid var(--line); }
   .header-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; min-height: 68px; }
@@ -320,6 +322,7 @@
 
 </head>
 <body>
+<a class="skip-link" href="#catalogo">Ir al catálogo</a>
 
 <header>
   <div class="header-inner">
@@ -806,7 +809,7 @@
   </div>
 </footer>
 
-<div class="purchase-overlay" id="purchaseModal" role="dialog" aria-modal="true" aria-labelledby="purchaseTitle">
+<div class="purchase-overlay" id="purchaseModal" role="dialog" aria-modal="true" aria-labelledby="purchaseTitle" aria-hidden="true">
   <div class="purchase-box">
     <button class="purchase-close" id="purchaseClose" aria-label="Cerrar">&times;</button>
 
@@ -832,7 +835,7 @@
           <input type="number" id="purchaseQty" value="1" min="1" step="1" inputmode="numeric" aria-label="Cantidad">
           <button type="button" class="qty-btn" id="qtyPlus" aria-label="Aumentar cantidad">+</button>
         </div>
-        <p class="purchase-stock-note" id="purchaseStockNote"></p>
+        <p class="purchase-stock-note" id="purchaseStockNote" role="status" aria-live="polite"></p>
       </div>
 
       <div class="purchase-field">
@@ -853,9 +856,9 @@
       <button class="purchase-submit" id="purchaseSubmit">Preparar mensaje</button>
     </div>
 
-    <div id="purchaseStepSuccess" hidden>
+    <div id="purchaseStepSuccess" aria-live="polite" hidden>
       <p class="purchase-eyebrow">Mensaje listo</p>
-      <h3 id="purchaseSuccessCode">PD-2026-0000</h3>
+      <h3 id="purchaseSuccessCode" tabindex="-1">PD-2026-0000</h3>
       <p class="purchase-instruction">Tu selección quedó registrada. Envía el mensaje a <strong>@primedrop.pa</strong> para continuar la compra.</p>
 
       <ol class="purchase-steps">
@@ -875,7 +878,7 @@
   </div>
 </div>
 
-<div class="lightbox-overlay" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada del producto">
+<div class="lightbox-overlay" id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada del producto" aria-hidden="true">
   <div class="lightbox-img-wrap">
     <button class="lightbox-close" id="lightboxClose" aria-label="Cerrar foto ampliada">&times;</button>
     <button class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="Foto anterior">&#8249;</button>
@@ -885,7 +888,7 @@
 </div>
 
 <!-- Supabase: configura tu URL y anon key en el bloque PRIME_DROP_CONFIG dentro del <script> de abajo. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
 <script>
   const buttons = document.querySelectorAll('.filter-btn');
@@ -1029,6 +1032,16 @@
     });
   });
 
+  function trapFocusWithin(event, container) {
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      .filter(el => !el.hidden && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden');
+    if (!focusable.length) { event.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
   // Lightbox / zoom on product photos
   (function () {
     const overlay = document.getElementById('lightbox');
@@ -1066,6 +1079,7 @@
       lastFocused = document.activeElement;
       renderCurrent(false);
       overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
       closeBtn.focus();
       document.body.style.overflow = 'hidden';
     }
@@ -1073,8 +1087,9 @@
 
     function closeLightbox() {
       overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
-      if (lastFocused) lastFocused.focus();
+      if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
     }
 
     function goPrev() { currentIndex = (currentIndex - 1 + currentImages.length) % currentImages.length; renderCurrent(true); }
@@ -1106,9 +1121,10 @@
     nextBtn.addEventListener('click', goNext);
     document.addEventListener('keydown', (e) => {
       if (!overlay.classList.contains('open')) return;
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); return; }
+      if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
+      trapFocusWithin(e, overlay);
     });
 
     // Swipe / drag within the zoomed view to move between photos of the
@@ -1223,9 +1239,20 @@
 
       if (error) {
         console.error('[Prime Drop] Error cargando el catálogo desde Supabase:', error.message);
+        document.querySelectorAll('.size-row[data-dynamic="true"]').forEach(row => {
+          row.innerHTML = '<span class="size-loading">No pudimos cargar la disponibilidad. Recarga la página.</span>';
+        });
+        purchaseButtons.forEach(btn => {
+          btn.disabled = true;
+          btn.setAttribute('aria-disabled', 'true');
+        });
         return;
       }
 
+      purchaseButtons.forEach(btn => {
+        btn.disabled = false;
+        btn.removeAttribute('aria-disabled');
+      });
       catalog = {};
       data.forEach(p => {
         const variants = {};
@@ -1437,6 +1464,7 @@
     let currentSize = null;
     let currentPaymentMode = 'full';
     let lastMessage = '';
+    let lastPurchaseFocus = null;
 
     const DEPOSIT_RATIO = 0.5; // debe coincidir con v_deposit_ratio en create_purchase_request
 
@@ -1526,6 +1554,7 @@
     function openModal(slug) {
       const product = catalog[slug];
       if (!product) return;
+      lastPurchaseFocus = document.activeElement;
       currentSlug = slug;
       currentColor = null;
       currentSize = null;
@@ -1579,12 +1608,16 @@
       submitBtn.textContent = availableSizes.length === 0 ? 'No disponible' : 'Preparar mensaje';
 
       overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => closeBtn.focus());
     }
 
     function closeModal() {
       overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
+      if (lastPurchaseFocus && typeof lastPurchaseFocus.focus === 'function') lastPurchaseFocus.focus();
     }
 
     function clampQty() {
@@ -1597,11 +1630,29 @@
     }
 
     async function copyMessage(msg) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(msg);
+          return true;
+        } catch (e) {
+          console.warn('[Prime Drop] Clipboard API no disponible; usando copia compatible.', e);
+        }
+      }
       try {
-        await navigator.clipboard.writeText(msg);
-        return true;
+        const textarea = document.createElement('textarea');
+        textarea.value = msg;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        return copied;
       } catch (e) {
-        console.warn('[Prime Drop] No se pudo copiar automáticamente el mensaje.', e);
+        console.warn('[Prime Drop] No se pudo copiar el mensaje.', e);
         return false;
       }
     }
@@ -1631,7 +1682,11 @@
     closeBtn.addEventListener('click', closeModal);
     closeSuccessBtn.addEventListener('click', closeModal);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (!overlay.classList.contains('open')) return;
+      if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+      trapFocusWithin(e, overlay);
+    });
 
     purchaseButtons.forEach(btn => {
       btn.addEventListener('click', () => openModal(btn.dataset.product));
@@ -1661,6 +1716,7 @@
       }
 
       submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-busy', 'true');
       submitBtn.textContent = 'Preparando mensaje…';
       errorEl.hidden = true;
 
@@ -1688,6 +1744,7 @@
       const { data, error } = await client.rpc(rpcName, rpcArgs);
 
       submitBtn.disabled = false;
+      submitBtn.removeAttribute('aria-busy');
       submitBtn.textContent = 'Preparar mensaje';
 
       if (error) {
@@ -1740,6 +1797,7 @@
         ? 'Tu mensaje está listo y ya lo copiamos.'
         : 'No se pudo copiar automáticamente — selecciona el mensaje de abajo y cópialo manualmente.';
       messageBoxEl.textContent = message;
+      requestAnimationFrame(() => successCodeEl.focus({ preventScroll: true }));
 
       // Instagram se abre únicamente cuando la persona toca el CTA explícito.
       // Evita ventanas emergentes inesperadas y mantiene claro que la compra
