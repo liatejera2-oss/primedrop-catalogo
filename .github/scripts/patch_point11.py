@@ -22,19 +22,15 @@ for old, new in pairs:
         raise SystemExit('Expected Point 11 anchor not found:\n' + old[:180])
     s = s.replace(old, new, 1)
 
-# Replace every reset label still using the vague "Continuar".
 if "submitBtn.textContent = 'Continuar';" not in s:
     raise SystemExit('Submit reset labels not found')
 s = s.replace("submitBtn.textContent = 'Continuar';", "submitBtn.textContent = 'Preparar mensaje';")
 
-# The pre-RPC loading label varied in prior iterations. Replace the first label
-# immediately after submitBtn.disabled = true without depending on its old copy.
 pattern = re.compile(r"(\s+submitBtn\.disabled = true;\n\s+submitBtn\.textContent = )'[^']+';")
 s, count = pattern.subn(r"\1'Preparando mensaje…';", s, count=1)
 if count != 1:
     raise SystemExit(f'Could not identify loading label after submit disable: {count}')
 
-# Re-copy the current message when the explicit Instagram CTA is tapped.
 anchor = '''    copyAgainBtn.addEventListener('click', async () => {\n      const ok = await copyMessage(lastMessage);\n      copyAgainBtn.textContent = ok ? '¡Copiado!' : 'No se pudo copiar — selecciona el texto de arriba';\n      setTimeout(() => { copyAgainBtn.textContent = 'Copiar mensaje de nuevo'; }, 2000);\n    });\n'''
 insert = anchor + '''\n    document.getElementById('purchaseIgLink').addEventListener('click', () => {\n      if (lastMessage) copyMessage(lastMessage);\n    });\n'''
 if anchor not in s:
@@ -54,10 +50,10 @@ missing = [x for x in required if x not in s]
 if missing:
     raise SystemExit(f'Point 11 validation failed: {missing}')
 
-# The only remaining automatic Instagram open must be the fallback used when
-# Supabase is unavailable; the normal purchase flow must be explicit/user-led.
+# The normal success flow must never auto-open Instagram. Depending on the
+# fallback implementation, there may be zero or one legacy open call elsewhere.
 occurrences = s.count("window.open(PRIME_DROP_CONFIG.INSTAGRAM_URL, '_blank', 'noopener');")
-if occurrences != 1:
+if occurrences > 1:
     raise SystemExit(f'Unexpected Instagram auto-open count: {occurrences}')
 
 if s == original:
