@@ -1,0 +1,36 @@
+name: PRIME DROP add practice cleanup
+on:
+  push:
+    branches: [intervention/12-ux-finance-analysis]
+    paths: ['.github/scripts/add_practice_cleanup.py', '.github/workflows/add-practice-cleanup.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/12-ux-finance-analysis
+      - name: Apply practice cleanup controls
+        run: python .github/scripts/add_practice_cleanup.py
+      - name: Validate and commit
+        run: |
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          s=Path('panel-privado.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>', s, flags=re.S)
+          js='\n'.join(scripts)
+          with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+              f.write(js); path=f.name
+          subprocess.run(['node','--check',path], check=True)
+          for token in ['resetPracticeDataBtn','delete_order_record_no_stock','reset_practice_orders_no_stock','action-delete']:
+              assert token in s, token
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add panel-privado.html
+          git commit -m "Add safe practice data cleanup controls"
+          git push origin HEAD:intervention/12-ux-finance-analysis
