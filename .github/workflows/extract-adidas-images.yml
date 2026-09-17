@@ -1,0 +1,35 @@
+name: Extract Adidas images
+on:
+  push:
+    branches: [intervention/09-product-variants]
+    paths: [.github/workflows/extract-adidas-images.yml]
+permissions:
+  contents: read
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/09-product-variants
+      - name: Extract Adidas card images
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, base64
+          text=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<article class="card" data-cat="chaquetas".*?<h3>Adidas — Chinese New Year</h3>.*?</article>', text, re.S)
+          if not m:
+              raise SystemExit('Adidas card not found')
+          block=m.group(0)
+          imgs=re.findall(r'<img[^>]+src="data:image/([^;]+);base64,([^"]+)"', block, re.S)
+          out=Path('adidas-images'); out.mkdir()
+          for i,(ext,data) in enumerate(imgs,1):
+              ext='jpg' if ext in ('jpeg','jpg') else ext
+              (out/f'adidas-{i}.{ext}').write_bytes(base64.b64decode(data))
+          print('extracted', len(imgs), 'images')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adidas-images
+          path: adidas-images/
