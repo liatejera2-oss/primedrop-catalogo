@@ -728,7 +728,7 @@
 
     const paidSales = paid.reduce((sum, o) => sum + Number(o.total_reference || 0), 0);
     const activeDeposits = reserved.reduce((sum, o) => sum + Number(o.amount_paid || 0), 0);
-    const collected = paidSales + activeDeposits;
+    const collected = paid.reduce((sum, o) => sum + Number(o.amount_paid || 0), 0) + activeDeposits;
     const pendingRequests = pending.reduce((sum, o) => sum + Math.max(0, Number(o.total_reference || 0) - Number(o.amount_paid || 0)), 0);
     const reservedBalance = reserved.reduce((sum, o) => sum + Math.max(0, Number(o.total_reference || 0) - Number(o.amount_paid || 0)), 0);
 
@@ -880,6 +880,7 @@
         if (error) { resultEl.innerHTML += `<p class="msg msg-error">${error.message}</p>`; return; }
         document.getElementById('searchBtn').click();
         loadOrders(activeStatus);
+        loadFinancialSummary();
         loadInventory();
       });
     }
