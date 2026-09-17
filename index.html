@@ -1188,7 +1188,36 @@
       renderAllStatusTags();
       renderAllPrices();
       renderAllPurchaseButtons();
+      await syncUpcomingPublicationState();
       migrateUpcomingCards();
+    }
+
+    async function syncUpcomingPublicationState() {
+      const { data, error } = await client.rpc('get_published_product_states');
+      if (error) {
+        console.warn('[Prime Drop] No se pudo consultar el historial de publicación:', error.message);
+        return;
+      }
+
+      const states = new Map((data || []).map(row => [row.slug, row]));
+      document.querySelectorAll('.upcoming-card').forEach(card => {
+        const tag = card.querySelector('[data-stock-status]');
+        if (!tag) return;
+        const state = states.get(tag.dataset.stockStatus);
+        if (!state || state.published_once !== true) return;
+
+        // Si ya se publicó alguna vez pero hoy está oculto, no debe volver a
+        // aparecer en Próximos Drops. Si está activo, migrateUpcomingCards()
+        // lo moverá inmediatamente al catálogo principal.
+        if (state.active !== true) card.remove();
+      });
+
+      const upcomingSection = document.getElementById('upcomingSection');
+      const upcomingSectionHead = document.getElementById('upcomingSectionHead');
+      if (upcomingSection && !upcomingSection.querySelector('.upcoming-card')) {
+        upcomingSection.style.display = 'none';
+        if (upcomingSectionHead) upcomingSectionHead.style.display = 'none';
+      }
     }
 
     // Si una prenda de "Próximos drops" ya fue publicada (tiene fila

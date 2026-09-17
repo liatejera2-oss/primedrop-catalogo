@@ -701,12 +701,42 @@
     btn.disabled = true;
     showMsg(msgEl, '', null);
 
+    if (publishBtn) {
+      // Publicar debe ser una sola operación atómica: producto + variantes +
+      // active=true + published_once=true. Así evitamos estados parciales donde
+      // la tarjeta desaparece de Próximos Drops pero todavía no entra al catálogo.
+      const { data, error } = await client.rpc('publish_upcoming_product', {
+        p_slug: slug,
+        p_name: name,
+        p_regular_price: price,
+        p_stocks: stocks
+      });
+
+      btn.disabled = false;
+      if (error) {
+        showMsg(msgEl, 'Error publicando: ' + error.message, 'error');
+        return;
+      }
+
+      const published = Array.isArray(data) ? data[0] : data;
+      if (!published || published.active !== true || published.published_once !== true) {
+        showMsg(msgEl, 'La publicación no quedó confirmada. Actualiza e intenta nuevamente.', 'error');
+        return;
+      }
+
+      showMsg(msgEl, `"${name}" ya está publicado — salió de Próximos drops y ahora aparece en el catálogo disponible.`, 'ok');
+      viewLoaded.inventario = false;
+      await loadUpcoming();
+      return;
+    }
+
+    // Guardar continúa siendo un borrador no publicado.
     const productPayload = {
-      slug, name, category: 'T-shirt', sale_mode: 'in_stock',
+      slug, name, category: 'Jersey', sale_mode: 'in_stock',
       regular_price: isNaN(price) ? 0 : price,
-      active: !!publishBtn
+      active: false,
+      published_once: false
     };
-    if (publishBtn) productPayload.published_once = true;
 
     const { data: prod, error: pErr } = await client
       .from('products')
@@ -716,7 +746,7 @@
 
     if (pErr) {
       btn.disabled = false;
-      showMsg(msgEl, (publishBtn ? 'Error publicando: ' : 'Error guardando: ') + pErr.message, 'error');
+      showMsg(msgEl, 'Error guardando: ' + pErr.message, 'error');
       return;
     }
 
@@ -726,13 +756,8 @@
     btn.disabled = false;
     if (vErr) { showMsg(msgEl, 'Error guardando tallas: ' + vErr.message, 'error'); return; }
 
-    if (publishBtn) {
-      showMsg(msgEl, `"${name}" ya está publicado — aparecerá como Disponible en el catálogo y ahora se maneja desde "Inventario".`, 'ok');
-      viewLoaded.inventario = false; // fuerza recarga de Inventario la próxima vez que se visite esa pestaña
-    } else {
-      showMsg(msgEl, `"${name}" se guardó como borrador — sigue sin publicarse ni afectar el catálogo.`, 'ok');
-    }
-    loadUpcoming();
+    showMsg(msgEl, `"${name}" se guardó como borrador — sigue sin publicarse ni afectar el catálogo.`, 'ok');
+    await loadUpcoming();
   });
 
   // ---- Agregar producto nuevo (sin foto/tarjeta todavía) ----
