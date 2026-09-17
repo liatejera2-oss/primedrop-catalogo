@@ -1,0 +1,156 @@
+from pathlib import Path
+
+path = Path('index.html')
+html = path.read_text(encoding='utf-8')
+original = html
+
+replacements = [
+    (
+        ".filters { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; padding-bottom: 2px; scrollbar-width: thin; }",
+        ".filters { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; padding: 3px 2px 5px; scrollbar-width: none; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }",
+    ),
+    (
+        ".filter-btn { font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none; background: transparent; border: 1px solid transparent; color: var(--ink-soft); padding: 9px 14px; border-radius: var(--radius-sm); cursor: pointer; transition: all .2s ease; white-space: nowrap; min-height: 40px; flex-shrink: 0; }",
+        ".filter-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; background: #fff; border: 1px solid var(--line); color: var(--ink-soft); padding: 8px 13px; border-radius: var(--radius-pill); cursor: pointer; transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease; white-space: nowrap; min-height: 40px; flex-shrink: 0; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 6px; }",
+    ),
+    (
+        ".filter-btn:hover { color: var(--ink); border-color: var(--line); }",
+        ".filter-btn:hover { color: var(--ink); border-color: #D5D5D8; background: var(--bg-alt); }",
+    ),
+    (
+        '.filter-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }',
+        '.filter-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }\n  .filter-btn[aria-pressed="true"]:hover { background: #000; border-color: #000; color: #fff; }\n  .filter-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }\n  .filter-btn:disabled { opacity: .4; cursor: default; }\n  .filters::-webkit-scrollbar { display: none; }',
+    ),
+    (
+        ".filter-count { opacity: 0.65; }",
+        ".filter-count { opacity: .62; font-size: 11.5px; font-variant-numeric: tabular-nums; }",
+    ),
+]
+
+for old, new in replacements:
+    if old not in html:
+        raise SystemExit(f'Expected filter CSS fragment not found: {old}')
+    html = html.replace(old, new, 1)
+
+old_html = '''<div class="filters" role="group" aria-label="Filtrar por categoría">
+    <button class="filter-btn" data-filter="all" aria-pressed="true">Todo <span class="filter-count">(10)</span></button>
+    <button class="filter-btn" data-filter="jerseys" aria-pressed="false">Jerseys <span class="filter-count">(8)</span></button>
+    <button class="filter-btn" data-filter="polos" aria-pressed="false">Polos <span class="filter-count">(1)</span></button>
+    <button class="filter-btn" data-filter="chaquetas" aria-pressed="false">Chaquetas <span class="filter-count">(1)</span></button>
+  </div>'''
+new_html = '''<div class="filters" role="group" aria-label="Filtrar catálogo por categoría">
+    <button class="filter-btn" data-filter="all" aria-pressed="true" aria-controls="grid">Todo <span class="filter-count">(10)</span></button>
+    <button class="filter-btn" data-filter="jerseys" aria-pressed="false" aria-controls="grid">Jerseys <span class="filter-count">(8)</span></button>
+    <button class="filter-btn" data-filter="polos" aria-pressed="false" aria-controls="grid">Polos <span class="filter-count">(1)</span></button>
+    <button class="filter-btn" data-filter="chaquetas" aria-pressed="false" aria-controls="grid">Chaquetas <span class="filter-count">(1)</span></button>
+  </div>'''
+if old_html not in html:
+    raise SystemExit('Expected filter HTML block not found')
+html = html.replace(old_html, new_html, 1)
+
+old_apply = '''  function applyFilter(filter) {
+    activeFilter = filter;
+    let shown = 0;
+    getGridCards().forEach(card => {
+      const show = filter === 'all' || card.dataset.cat === filter;
+      card.style.display = show ? '' : 'none';
+      if (show) shown++;
+    });
+    statusEl.textContent = `Mostrando ${shown} producto${shown === 1 ? '' : 's'}`;
+  }'''
+new_apply = '''  function applyFilter(filter) {
+    activeFilter = filter;
+    let shown = 0;
+    getGridCards().forEach(card => {
+      const show = filter === 'all' || card.dataset.cat === filter;
+      card.style.display = show ? '' : 'none';
+      if (show) shown++;
+    });
+    const activeBtn = Array.from(buttons).find(btn => btn.dataset.filter === filter);
+    const filterLabel = activeBtn ? activeBtn.textContent.replace(/\\(\\d+\\)/, '').trim() : '';
+    statusEl.textContent = `Mostrando ${shown} producto${shown === 1 ? '' : 's'}${filter !== 'all' && filterLabel ? ` en ${filterLabel}` : ''}`;
+  }'''
+if old_apply not in html:
+    raise SystemExit('Expected applyFilter block not found')
+html = html.replace(old_apply, new_apply, 1)
+
+old_refresh = '''  function refreshFilterCounts() {
+    const counts = { all: 0 };
+    getGridCards().forEach(card => {
+      counts.all++;
+      const cat = card.dataset.cat;
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    });
+    buttons.forEach(btn => {
+      const span = btn.querySelector('.filter-count');
+      if (span) span.textContent = `(${counts[btn.dataset.filter] || 0})`;
+    });
+    applyFilter(activeFilter);
+  }'''
+new_refresh = '''  function refreshFilterCounts() {
+    const counts = { all: 0 };
+    getGridCards().forEach(card => {
+      counts.all++;
+      const cat = card.dataset.cat;
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    });
+    buttons.forEach(btn => {
+      const count = counts[btn.dataset.filter] || 0;
+      const span = btn.querySelector('.filter-count');
+      if (span) span.textContent = `(${count})`;
+      if (btn.dataset.filter !== 'all') {
+        btn.hidden = count === 0;
+        btn.disabled = count === 0;
+      }
+    });
+    if (activeFilter !== 'all' && !counts[activeFilter]) {
+      activeFilter = 'all';
+      buttons.forEach(btn => btn.setAttribute('aria-pressed', btn.dataset.filter === 'all' ? 'true' : 'false'));
+    }
+    applyFilter(activeFilter);
+  }'''
+if old_refresh not in html:
+    raise SystemExit('Expected refreshFilterCounts block not found')
+html = html.replace(old_refresh, new_refresh, 1)
+
+old_click = '''  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.setAttribute('aria-pressed', 'false'));
+      btn.setAttribute('aria-pressed', 'true');
+      applyFilter(btn.dataset.filter);
+    });
+  });'''
+new_click = '''  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      buttons.forEach(b => b.setAttribute('aria-pressed', 'false'));
+      btn.setAttribute('aria-pressed', 'true');
+      applyFilter(btn.dataset.filter);
+      const filterRow = btn.closest('.filters');
+      if (filterRow && filterRow.scrollWidth > filterRow.clientWidth) {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    });
+  });
+  refreshFilterCounts();'''
+if old_click not in html:
+    raise SystemExit('Expected filter click block not found')
+html = html.replace(old_click, new_click, 1)
+
+required = [
+    'scrollbar-width: none;',
+    'border-radius: var(--radius-pill);',
+    'aria-label="Filtrar catálogo por categoría"',
+    'aria-controls="grid"',
+    'btn.hidden = count === 0;',
+    "btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });",
+    'refreshFilterCounts();',
+]
+missing = [x for x in required if x not in html]
+if missing:
+    raise SystemExit(f'Filter validation failed: {missing}')
+
+if html == original:
+    raise SystemExit('No filter changes produced')
+
+path.write_text(html, encoding='utf-8')
