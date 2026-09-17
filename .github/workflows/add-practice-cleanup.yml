@@ -25,6 +25,18 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
           python .github/scripts/add_practice_cleanup_v2.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('panel-privado.html')
+          s=p.read_text(encoding='utf-8')
+          bad="""const ok = confirm('Esto borrará TODAS las solicitudes de prueba y reiniciará la numeración.
+
+El inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');"""
+          good="const ok = confirm('Esto borrará TODAS las solicitudes de prueba y reiniciará la numeración.\\n\\nEl inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');"
+          if bad in s:
+              s=s.replace(bad,good,1)
+          p.write_text(s,encoding='utf-8')
+          PY
       - name: Validate and commit
         run: |
           git diff --check
