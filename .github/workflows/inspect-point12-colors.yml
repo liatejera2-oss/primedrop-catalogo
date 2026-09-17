@@ -1,0 +1,31 @@
+name: PRIME DROP inspect Point 12 colors
+on:
+  push:
+    branches:
+      - intervention/12-reservations-internal
+    paths:
+      - .github/workflows/inspect-point12-colors.yml
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/12-reservations-internal
+      - name: Inspect index color and name rendering
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          for pat in ['swatch','Swatch','selectedColor','colorOptions','color-options','purchaseColor','colorEl','colors.map','querySelector(\'h3\')','renderAllPrices','renderAllPurchaseButtons']:
+              print('\n###',pat)
+              start=0
+              for _ in range(6):
+                  i=s.find(pat,start)
+                  if i<0: break
+                  print('INDEX',i)
+                  print(s[max(0,i-900):i+2200])
+                  start=i+1
+          PY
