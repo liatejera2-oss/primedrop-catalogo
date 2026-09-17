@@ -1,0 +1,67 @@
+name: PRIME DROP final core audit
+on:
+  push:
+    branches: [intervention/16-accessibility-robustness]
+    paths: ['.github/workflows/final-core-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/16-accessibility-robustness
+      - name: Validate core catalog and panel
+        run: |
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re, tempfile, subprocess
+
+          index=Path('index.html').read_text(encoding='utf-8')
+          panel=Path('panel-privado.html').read_text(encoding='utf-8')
+
+          # Performance/media integrity
+          assert 'data:image/' not in index
+          refs=set(re.findall(r'(assets/media/[A-Za-z0-9._-]+)', index))
+          assert len(refs) >= 40, len(refs)
+          missing=[ref for ref in refs if not Path(ref).exists()]
+          assert not missing, missing
+          assert Path('index.html').stat().st_size < 250_000
+
+          # Public catalog core flow and accessibility/robustness
+          public_tokens=[
+            'Catálogo disponible','Próximos Drops','¿Cómo comprar?',
+            'Preparar mensaje','Abrir @primedrop.pa',
+            'create_purchase_request_variant','create_purchase_request',
+            'class="skip-link"','trapFocusWithin',
+            "document.execCommand('copy')",'aria-busy',
+            'No pudimos cargar la disponibilidad. Recarga la página.',
+            'get_upcoming_catalog_states'
+          ]
+          for token in public_tokens: assert token in index, token
+          assert 'supabase-js@2/dist/umd/supabase.js" defer' not in index
+
+          # Internal panel core operations. Gastos/Análisis remain present but are not expanded here.
+          panel_tokens=[
+            'Solicitudes','Inventario','Próximos drops','Gastos Operativos','Análisis',
+            'Reiniciar datos de prueba','reset_practice_orders_no_stock',
+            'delete_order_record_no_stock','save_product_color_stock',
+            'inventoryFilters','inventoryUnits','Confirmar abono','Confirmar saldo'
+          ]
+          for token in panel_tokens: assert token in panel, token
+
+          # Syntax-check inline JS while removing HTML comments that may contain literal <script> text.
+          for name, text in [('index', index), ('panel', panel)]:
+            clean=re.sub(r'<!--.*?-->', '', text, flags=re.S)
+            scripts=re.findall(r'<script>(.*?)</script>', clean, flags=re.S)
+            js='\n'.join(scripts)
+            with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+              f.write(js); path=f.name
+            subprocess.run(['node','--check',path], check=True)
+
+          print('FINAL_AUDIT_OK')
+          print('media_refs', len(refs))
+          print('index_bytes', Path('index.html').stat().st_size)
+          PY
