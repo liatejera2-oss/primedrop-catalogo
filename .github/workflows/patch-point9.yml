@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/patch-point9.yml
       - .github/scripts/patch_point9.py
+      - .github/scripts/run_point9_patch.py
 permissions:
   contents: write
 jobs:
@@ -15,7 +16,7 @@ jobs:
         with:
           ref: intervention/09-product-variants
       - name: Apply Point 9 variants
-        run: python .github/scripts/patch_point9.py
+        run: python .github/scripts/run_point9_patch.py
       - name: Validate and commit
         run: |
           git diff --check
