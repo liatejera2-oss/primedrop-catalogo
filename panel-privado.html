@@ -157,6 +157,30 @@
   input.stock-input { border-radius:8px; }
   input.stock-input[data-price-input], input.stock-input[data-price] { width:72px; }
   .table-scroll button { padding:6px 11px; }
+  .wrap { width:min(1180px, 100%); }
+  button.secondary { background:transparent; }
+  button.danger, button.danger-ghost { background:transparent; color:var(--accent); border:1px solid #E8B8BC; }
+  button.danger:hover, button.danger-ghost:hover { background:var(--panel-red-soft); color:var(--accent); }
+  .finance-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:20px; }
+  .finance-card { background:#fff; border:1px solid var(--panel-line); border-radius:14px; padding:16px; }
+  .finance-card span { display:block; color:var(--ink-soft); font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; margin-bottom:7px; }
+  .finance-card strong { display:block; font-size:22px; letter-spacing:-.025em; }
+  .finance-card small { display:block; margin-top:5px; color:var(--ink-soft); font-size:11.5px; line-height:1.35; }
+  .finance-note { grid-column:1/-1; color:var(--ink-soft); font-size:11.5px; padding:0 2px; }
+  .money-cell { min-width:112px; }
+  .money-cell strong { display:block; font-size:13px; }
+  .money-cell span, .money-cell small { color:var(--ink-soft); font-size:11.5px; }
+  .money-progress { height:3px; background:#ECECE9; border-radius:999px; overflow:hidden; margin:6px 0 4px; }
+  .money-progress i { display:block; height:100%; background:var(--ink); border-radius:999px; }
+  input.product-name-input, input.upcoming-name-input { min-width:190px; margin:0; font-size:13px; }
+  input.product-name-input { width:210px; }
+  input.upcoming-name-input { width:280px; }
+  .placeholder-card { min-height:220px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; }
+  .placeholder-badge { display:inline-block; padding:5px 10px; border:1px solid var(--panel-line); border-radius:999px; color:var(--ink-soft); font-size:11.5px; font-weight:700; }
+  .upcoming-scroll table { min-width:1020px; }
+  @media (max-width: 900px) {
+    .finance-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
   @media (max-width: 760px) {
     body { padding:18px 14px 36px; }
     .admin-title { align-items:flex-start; }
@@ -217,6 +241,7 @@
       <button class="view-tab-btn active" data-view="solicitudes">Solicitudes</button>
       <button class="view-tab-btn" data-view="inventario">Inventario</button>
       <button class="view-tab-btn" data-view="proximos">Próximos drops</button>
+      <button class="view-tab-btn" data-view="gastos">Gastos Operativos</button>
     </div>
 
     <div id="viewSolicitudes" class="view-section">
@@ -229,12 +254,20 @@
         <div id="searchResult" style="margin-top:14px;"></div>
       </div>
 
+      <div class="finance-summary" id="financialSummary" aria-label="Resumen financiero básico">
+        <div class="finance-card"><span>Cobrado confirmado</span><strong id="summaryCollected">$0.00</strong><small>Abonos y pagos confirmados.</small></div>
+        <div class="finance-card"><span>Por cobrar</span><strong id="summaryReceivable">$0.00</strong><small>Solicitudes pendientes + saldo de reservas.</small></div>
+        <div class="finance-card"><span>En reservas</span><strong id="summaryReserved">$0.00</strong><small id="summaryReservedCount">0 reservas activas.</small></div>
+        <div class="finance-card"><span>Ventas completadas</span><strong id="summaryPaidSales">$0.00</strong><small id="summaryPaidCount">0 ventas pagadas.</small></div>
+        <div class="finance-note">Resumen operativo básico. No incluye solicitudes canceladas, devoluciones ni gastos.</div>
+      </div>
+
       <div class="card">
         <h2>Solicitudes</h2>
         <p class="section-intro">Gestiona cada solicitud según el pago recibido. Los cambios de estado actualizan la reserva y el inventario automáticamente.</p>
         <details class="policy-details">
-          <summary>Cómo funciona una reserva con abono 50%</summary>
-          <div class="details-body">La solicitud no aparta stock mientras esté Pendiente. Al confirmar el abono pasa a Reservada y el stock se descuenta una sola vez. Al completar el saldo pasa a Pagada sin descontar nuevamente. Cancelar una reserva libera el stock; cualquier devolución de dinero se gestiona manualmente. Las reservas confirmadas no vencen automáticamente.</div>
+          <summary>Reservas con abono</summary>
+          <div class="details-body">El stock se aparta cuando confirmas el 50%. Al recibir el saldo, la reserva pasa a Pagada. Si cancelas, el stock se libera.</div>
         </details>
         <div class="tabs">
           <button class="tab-btn active" data-status="pending">Pendientes</button>
@@ -258,7 +291,7 @@
         <div class="table-scroll orders-scroll">
           <table>
             <thead>
-              <tr><th>Código</th><th>Total</th><th>Cobrado / saldo</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+              <tr><th>Código</th><th>Total</th><th>Cobrado / por cobrar</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
             </thead>
             <tbody id="ordersBody"></tbody>
           </table>
@@ -376,6 +409,14 @@
         </div>
       </details>
     </div>
+
+    <div id="viewGastos" class="view-section hidden">
+      <div class="card placeholder-card">
+        <span class="placeholder-badge">Módulo preparado</span>
+        <h2 style="margin-top:14px;">Gastos Operativos</h2>
+        <p class="section-intro" style="margin-bottom:0;">Aquí centralizaremos costos de proveedor, shipping, carga marítima o aérea, publicidad y otros gastos operativos. La estructura financiera se configurará en el siguiente ajuste.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -412,13 +453,21 @@
   function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
 
   function colorHexForName(name) {
-    const key = String(name || '').trim().toLowerCase();
+    const key = String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const known = {
-      'burgundy': '#7B1E3A',
-      'berenjena': '#5A2B55',
-      'azul marino': '#19324F'
+      'burgundy': '#7B1E3A', 'berenjena': '#5A2B55', 'azul marino': '#19324F',
+      'rojo': '#C62828', 'red': '#C62828', 'negro': '#202020', 'black': '#202020',
+      'blanco': '#F7F7F5', 'white': '#F7F7F5', 'crema': '#E8DDC5', 'beige': '#D8C7A6',
+      'azul': '#2F5DA8', 'celeste': '#77BDE8', 'verde': '#3E7B55', 'green': '#3E7B55',
+      'amarillo': '#E4B93F', 'naranja': '#D9772B', 'rosa': '#D978A0', 'rosado': '#D978A0',
+      'morado': '#6D4A8E', 'violeta': '#6D4A8E', 'gris': '#8A8F98', 'gray': '#8A8F98',
+      'marron': '#795548', 'cafe': '#795548'
     };
     return known[key] || '#D9D9D6';
+  }
+
+  function escapeAttr(value) {
+    return String(value ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   function badgeFor(status) {
@@ -430,7 +479,8 @@
     const total = Number(order.total_reference || 0);
     const paid = Number(order.amount_paid || 0);
     const balance = Math.max(0, total - paid);
-    return `<span>${moneyFmt(paid)} cobrado</span><br><span style="color:var(--ink-soft);">${moneyFmt(balance)} saldo</span>`;
+    const pct = total > 0 ? Math.min(100, Math.max(0, (paid / total) * 100)) : 0;
+    return `<div class="money-cell"><strong>${moneyFmt(paid)} cobrado</strong><div class="money-progress"><i style="width:${pct}%"></i></div><small>${moneyFmt(balance)} por cobrar</small></div>`;
   }
 
   function paymentBadgeFor(mode) {
@@ -467,6 +517,7 @@
     loginCard.classList.add('hidden');
     panel.classList.remove('hidden');
     loadOrders('pending');
+    loadFinancialSummary();
   }
 
   // ---- Cambio de vista (Solicitudes / Inventario / Próximos drops) ----
@@ -474,9 +525,10 @@
   const viewSections = {
     solicitudes: document.getElementById('viewSolicitudes'),
     inventario: document.getElementById('viewInventario'),
-    proximos: document.getElementById('viewProximos')
+    proximos: document.getElementById('viewProximos'),
+    gastos: document.getElementById('viewGastos')
   };
-  const viewLoaded = { solicitudes: true, inventario: false, proximos: false };
+  const viewLoaded = { solicitudes: true, inventario: false, proximos: false, gastos: true };
 
   function showView(view) {
     currentView = view;
@@ -495,7 +547,7 @@
   });
 
   document.getElementById('refreshBtn').addEventListener('click', () => {
-    if (currentView === 'solicitudes') loadOrders(activeStatus);
+    if (currentView === 'solicitudes') { loadOrders(activeStatus); loadFinancialSummary(); }
     if (currentView === 'inventario') loadInventory();
     if (currentView === 'proximos') { loadUpcoming(); loadDrafts(); }
   });
@@ -534,6 +586,33 @@
       loadOrders(activeStatus);
     });
   });
+
+  async function loadFinancialSummary() {
+    const { data, error } = await client
+      .from('orders')
+      .select('status, total_reference, amount_paid');
+    if (error) {
+      console.error('[Prime Drop] Error cargando resumen financiero:', error.message);
+      return;
+    }
+
+    const active = (data || []).filter(o => ['pending', 'reserved', 'paid'].includes(o.status));
+    const collected = active.reduce((sum, o) => sum + Number(o.amount_paid || 0), 0);
+    const receivable = active
+      .filter(o => o.status === 'pending' || o.status === 'reserved')
+      .reduce((sum, o) => sum + Math.max(0, Number(o.total_reference || 0) - Number(o.amount_paid || 0)), 0);
+    const reserved = active.filter(o => o.status === 'reserved');
+    const reservedValue = reserved.reduce((sum, o) => sum + Number(o.amount_paid || 0), 0);
+    const paid = active.filter(o => o.status === 'paid');
+    const paidSales = paid.reduce((sum, o) => sum + Number(o.total_reference || 0), 0);
+
+    document.getElementById('summaryCollected').textContent = moneyFmt(collected);
+    document.getElementById('summaryReceivable').textContent = moneyFmt(receivable);
+    document.getElementById('summaryReserved').textContent = moneyFmt(reservedValue);
+    document.getElementById('summaryReservedCount').textContent = `${reserved.length} reserva${reserved.length === 1 ? '' : 's'} activa${reserved.length === 1 ? '' : 's'}.`;
+    document.getElementById('summaryPaidSales').textContent = moneyFmt(paidSales);
+    document.getElementById('summaryPaidCount').textContent = `${paid.length} venta${paid.length === 1 ? '' : 's'} pagada${paid.length === 1 ? '' : 's'}.`;
+  }
 
   async function loadOrders(status) {
     const ordersMsg = document.getElementById('ordersMsg');
@@ -606,6 +685,7 @@
         : 'cancelada';
     showMsg(ordersMsg, `Solicitud ${row.order_number}: ${resultLabel}.`, 'ok');
     loadOrders(activeStatus);
+    loadFinancialSummary();
     loadInventory();
   });
 
@@ -734,7 +814,7 @@
         : '';
 
       tr.innerHTML = `
-        <td>${p.name}${colorBadge}</td>
+        <td><input type="text" class="product-name-input" data-name-input value="${escapeAttr(p.name)}" aria-label="Nombre del producto">${colorBadge}</td>
         <td><input type="number" min="0" step="0.01" class="stock-input" data-price-input value="${p.regular_price ?? ''}" placeholder="$"></td>
         ${sizeCells}
         <td><strong>${total}</strong></td>
@@ -761,6 +841,9 @@
       const tr = saveBtn.closest('tr');
       const inputs = tr.querySelectorAll('.stock-input[data-variant-id]');
       const priceInput = tr.querySelector('[data-price-input]');
+      const nameInput = tr.querySelector('[data-name-input]');
+      const productName = nameInput ? nameInput.value.trim() : '';
+      if (!productName) { showMsg(msgEl, 'El nombre del producto no puede quedar vacío.', 'error'); return; }
       saveBtn.disabled = true;
 
       const updates = Array.from(inputs).map(inp => ({
@@ -777,14 +860,17 @@
       if (!failed && priceInput) {
         const price = parseFloat(priceInput.value);
         if (!isNaN(price) && price > 0) {
-          const { error: priceErr } = await client.from('products').update({ regular_price: price }).eq('id', saveBtn.dataset.productId);
-          if (priceErr) failed = priceErr;
+          const { error: productErr } = await client.from('products').update({ regular_price: price, name: productName }).eq('id', saveBtn.dataset.productId);
+          if (productErr) failed = productErr;
+        } else {
+          const { error: productErr } = await client.from('products').update({ name: productName }).eq('id', saveBtn.dataset.productId);
+          if (productErr) failed = productErr;
         }
       }
 
       saveBtn.disabled = false;
       if (failed) { showMsg(msgEl, 'Error guardando: ' + failed.message, 'error'); return; }
-      showMsg(msgEl, 'Inventario actualizado.', 'ok');
+      showMsg(msgEl, 'Producto actualizado. El nombre, precio y stock se reflejarán en el catálogo.', 'ok');
       loadInventory();
       return;
     }
@@ -826,7 +912,7 @@
   // ---- Variantes de color ----
   async function loadColorProductOptions(selectedId = null) {
     const select = document.getElementById('colorProductSelect');
-    const { data, error } = await client.from('products').select('id, name, uses_color_variants').order('name');
+    const { data, error } = await client.from('products').select('id, name, uses_color_variants, color_stock_mode').order('name');
     if (error) return;
     const current = selectedId || select.value;
     select.innerHTML = (data || []).map(p => `<option value="${p.id}">${p.name}${p.uses_color_variants ? ' · colores activos' : ''}</option>`).join('');
@@ -910,21 +996,23 @@
     if (!productId || !color) { showMsg(msgEl, 'Selecciona un producto y escribe el color.', 'error'); return; }
     const stocks = {};
     SIZE_ORDER.forEach(s => { stocks[s] = Math.max(0, parseInt(document.getElementById('variantColor' + s).value, 10) || 0); });
-    const rows = SIZE_ORDER.map(size => ({ product_id: productId, color, size, stock_on_hand: stocks[size] }));
     const btn = document.getElementById('saveColorVariantBtn');
     btn.disabled = true;
-    const { error } = await client.from('product_color_variants').upsert(rows, { onConflict: 'product_id,color,size' });
-    if (!error) {
-      const { error: flagErr } = await client.from('products').update({ uses_color_variants: true }).eq('id', productId);
-      if (flagErr) {
-        btn.disabled = false;
-        showMsg(msgEl, 'Los colores se guardaron, pero no se pudieron activar: ' + flagErr.message, 'error');
-        return;
-      }
-    }
+    const { data, error } = await client.rpc('save_product_color_variant', {
+      p_product_id: productId,
+      p_color: color,
+      p_stocks: stocks
+    });
     btn.disabled = false;
     if (error) { showMsg(msgEl, 'Error guardando color: ' + error.message, 'error'); return; }
-    showMsg(msgEl, `Color "${color}" guardado. El producto ya usa inventario por color y talla.`, 'ok');
+    const saved = Array.isArray(data) ? data[0] : data;
+    const canonical = saved?.color || color;
+    const shared = saved?.stock_mode === 'shared_size';
+    const message = saved?.existed
+      ? `"${canonical}" ya existía: se actualizó la misma variante, no se creó un color duplicado.${shared ? ' El stock sigue administrándose por talla desde Inventario.' : ''}`
+      : `Color "${canonical}" agregado.${shared ? ' Usa el stock compartido del producto.' : ''} Aparecerá como opción en el catálogo al recargar.`;
+    showMsg(msgEl, message, 'ok');
+    document.getElementById('variantColorName').value = '';
     await loadColorProductOptions(productId);
     await loadInventory();
   });
@@ -964,7 +1052,7 @@
     const slugs = UPCOMING_PRODUCTS.map(p => p.slug);
     const { data, error } = await client
       .from('products')
-      .select('slug, regular_price, active, published_once, product_variants(size, stock_on_hand)')
+      .select('slug, name, regular_price, active, published_once, product_variants(size, stock_on_hand)')
       .in('slug', slugs);
 
     if (error) { showMsg(msgEl, 'Error cargando: ' + error.message, 'error'); return; }
@@ -999,15 +1087,16 @@
 
       const isSaved = !!existing; // ya tiene fila guardada (active=false, published_once=false)
 
+      const displayName = existing?.name || item.name;
       tr.innerHTML = `
-        <td>${item.name}</td>
+        <td><input type="text" class="upcoming-name-input" data-upcoming-name value="${escapeAttr(displayName)}" aria-label="Nombre del próximo drop"></td>
         <td><input type="number" min="0" step="0.01" class="stock-input" data-price value="${priceVal}" placeholder="$"></td>
         ${sizeCells}
         <td><span class="badge badge-pending">${isSaved ? 'Borrador' : 'Pendiente'}</span></td>
-        <td class="row" style="gap:6px; flex-wrap:nowrap;">
-          <button class="secondary save-draft-btn" data-slug="${item.slug}" data-name="${item.name}">Guardar</button>
-          <button class="publish-btn" data-slug="${item.slug}" data-name="${item.name}">Publicar</button>
-        </td>
+        <td><div class="actions-cell">
+          <button class="secondary save-draft-btn" data-slug="${item.slug}">Guardar</button>
+          <button class="publish-btn" data-slug="${item.slug}">Publicar</button>
+        </div></td>
       `;
       tbody.appendChild(tr);
     });
@@ -1021,7 +1110,9 @@
     const tr = btn.closest('tr');
     const msgEl = document.getElementById('upcomingMsg');
     const slug = btn.dataset.slug;
-    const name = btn.dataset.name;
+    const nameInput = tr.querySelector('[data-upcoming-name]');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) { showMsg(msgEl, 'El nombre del producto no puede quedar vacío.', 'error'); return; }
     const priceInput = tr.querySelector('[data-price]');
     const price = parseFloat(priceInput.value);
 
@@ -1075,7 +1166,8 @@
       slug, name, category: 'Jersey', sale_mode: 'in_stock',
       regular_price: isNaN(price) ? 0 : price,
       active: false,
-      published_once: false
+      published_once: false,
+      is_upcoming: true
     };
 
     const { data: prod, error: pErr } = await client
@@ -1283,7 +1375,7 @@
     a.remove();
     URL.revokeObjectURL(url);
 
-    showMsg(exportMsg, `Descargado: ${data.length} solicitud(es).`, 'ok');
+    showMsg(exportMsg, 'CSV descargado correctamente.', 'ok');
   });
 
   if (client) checkSession();

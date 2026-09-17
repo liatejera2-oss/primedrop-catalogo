@@ -1229,6 +1229,7 @@
 
       renderAllSizeRows();
       renderAllStatusTags();
+      renderAllProductNames();
       renderAllPrices();
       renderAllPurchaseButtons();
       await syncUpcomingPublicationState();
@@ -1236,7 +1237,7 @@
     }
 
     async function syncUpcomingPublicationState() {
-      const { data, error } = await client.rpc('get_published_product_states');
+      const { data, error } = await client.rpc('get_upcoming_catalog_states');
       if (error) {
         console.warn('[Prime Drop] No se pudo consultar el historial de publicación:', error.message);
         return;
@@ -1247,7 +1248,16 @@
         const tag = card.querySelector('[data-stock-status]');
         if (!tag) return;
         const state = states.get(tag.dataset.stockStatus);
-        if (!state || state.published_once !== true) return;
+        if (!state) return;
+
+        if (state.name) {
+          const title = card.querySelector('h3');
+          if (title) title.textContent = state.name;
+          const purchaseBtn = card.querySelector('[data-open-purchase]');
+          if (purchaseBtn) purchaseBtn.setAttribute('aria-label', `Comprar ${state.name} por Instagram`);
+        }
+
+        if (state.published_once !== true) return;
 
         // Si ya se publicó alguna vez pero hoy está oculto, no debe volver a
         // aparecer en Próximos Drops. Si está activo, migrateUpcomingCards()
@@ -1346,6 +1356,19 @@
           tag.textContent = 'Disponible';
           tag.classList.remove('status-soon');
         }
+      });
+    }
+
+    function renderAllProductNames() {
+      document.querySelectorAll('[data-price-for]').forEach(priceEl => {
+        const slug = priceEl.dataset.priceFor;
+        const product = catalog[slug];
+        if (!product || !product.name) return;
+        const card = priceEl.closest('.card');
+        const title = card?.querySelector('h3');
+        if (title) title.textContent = product.name;
+        const purchaseBtn = card?.querySelector('[data-open-purchase]');
+        if (purchaseBtn) purchaseBtn.setAttribute('aria-label', `Comprar ${product.name} por Instagram`);
       });
     }
 
@@ -1507,12 +1530,17 @@
       const hasColors = product.uses_color_variants && product.colors && product.colors.length;
       colorFieldEl.hidden = !hasColors;
       const COLOR_SWATCHES = {
-        'Burgundy': '#7B1E3A',
-        'Berenjena': '#4B2647',
-        'Azul marino': '#172A46'
+        'burgundy': '#7B1E3A', 'berenjena': '#4B2647', 'azul marino': '#172A46',
+        'rojo': '#C62828', 'red': '#C62828', 'negro': '#202020', 'black': '#202020',
+        'blanco': '#F7F7F5', 'white': '#F7F7F5', 'crema': '#E8DDC5', 'beige': '#D8C7A6',
+        'azul': '#2F5DA8', 'celeste': '#77BDE8', 'verde': '#3E7B55', 'green': '#3E7B55',
+        'amarillo': '#E4B93F', 'naranja': '#D9772B', 'rosa': '#D978A0', 'rosado': '#D978A0',
+        'morado': '#6D4A8E', 'violeta': '#6D4A8E', 'gris': '#8A8F98', 'gray': '#8A8F98',
+        'marron': '#795548', 'cafe': '#795548'
       };
       colorsEl.innerHTML = hasColors ? product.colors.map(color => {
-        const swatch = COLOR_SWATCHES[color] || '#6B7280';
+        const key = String(color || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const swatch = COLOR_SWATCHES[key] || '#6B7280';
         return `<button type="button" class="purchase-color-btn" data-color="${color}" aria-label="${color}" title="${color}" aria-pressed="false" style="--swatch:${swatch}"></button>`;
       }).join('') : '';
 
