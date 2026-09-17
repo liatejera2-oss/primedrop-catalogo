@@ -38,6 +38,7 @@
   th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
   .badge { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
   .badge-pending { background: #FFF3D6; color: #8A6300; }
+  .badge-reserved { background: #EEE9FF; color: #5A3BA4; }
   .badge-paid { background: #DFF3E3; color: #1E7A34; }
   .badge-cancelled { background: #F1F1F1; color: var(--ink-soft); }
   .badge-full { background: #EAF1FB; color: #1B4C8C; }
@@ -122,8 +123,10 @@
 
       <div class="card">
         <h2>Solicitudes</h2>
+        <p class="sub" style="margin-bottom:14px;"><strong>Regla interna de reserva:</strong> una solicitud con abono no aparta stock hasta que confirmes el 50%. Al confirmar el abono pasa a <strong>Reservadas</strong> y el inventario se descuenta una sola vez. Al cobrar el saldo pasa a Pagadas sin volver a descontar. Si cancelas una reserva, el stock se libera; cualquier devolución de dinero se gestiona manualmente. Las reservas con abono confirmado no vencen automáticamente.</p>
         <div class="tabs">
           <button class="tab-btn active" data-status="pending">Pendientes</button>
+          <button class="tab-btn" data-status="reserved">Reservadas</button>
           <button class="tab-btn" data-status="paid">Pagadas</button>
           <button class="tab-btn" data-status="cancelled">Canceladas</button>
         </div>
@@ -143,7 +146,7 @@
         <div id="ordersMsg"></div>
         <table>
           <thead>
-            <tr><th>Código</th><th>Total</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
+            <tr><th>Código</th><th>Total</th><th>Cobrado / saldo</th><th>Pago</th><th>Tipo</th><th>Creada</th><th>Estado</th><th>Acciones</th></tr>
           </thead>
           <tbody id="ordersBody"></tbody>
         </table>
@@ -301,8 +304,15 @@
   function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
 
   function badgeFor(status) {
-    const label = status === 'pending' ? 'Pendiente' : status === 'paid' ? 'Pagada' : 'Cancelada';
-    return `<span class="badge badge-${status}">${label}</span>`;
+    const labels = { pending: 'Pendiente', reserved: 'Reservada', paid: 'Pagada', cancelled: 'Cancelada' };
+    return `<span class="badge badge-${status}">${labels[status] || status}</span>`;
+  }
+
+  function paymentProgressHtml(order) {
+    const total = Number(order.total_reference || 0);
+    const paid = Number(order.amount_paid || 0);
+    const balance = Math.max(0, total - paid);
+    return `<span>${moneyFmt(paid)} cobrado</span><br><span style="color:var(--ink-soft);">${moneyFmt(balance)} saldo</span>`;
   }
 
   function paymentBadgeFor(mode) {
@@ -415,12 +425,12 @@
 
     const { data, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, payment_mode, fulfillment_type, created_at')
+      .select('id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at')
       .eq('status', status)
       .order('created_at', { ascending: false });
 
     if (error) { showMsg(ordersMsg, 'Error cargando solicitudes: ' + error.message, 'error'); return; }
-    if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--ink-soft);">Sin solicitudes en este estado.</td></tr>'; return; }
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink-soft);">Sin solicitudes en este estado.</td></tr>'; return; }
 
     data.forEach(o => tbody.appendChild(orderRow(o)));
   }
@@ -430,12 +440,17 @@
     const created = new Date(o.created_at).toLocaleString('es-PA');
     let actions = '';
     if (o.status === 'pending') {
-      actions = `<button data-action="pay" data-id="${o.id}">Marcar pagada</button>
-                 <button class="danger" data-action="cancel" data-id="${o.id}">Cancelar</button>`;
+      const confirmLabel = o.payment_mode === 'deposit' ? 'Confirmar abono 50%' : 'Confirmar pago';
+      actions = `<button data-action="pay" data-id="${o.id}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">${confirmLabel}</button>
+                 <button class="danger" data-action="cancel" data-id="${o.id}" data-status="${o.status}">Cancelar</button>`;
+    } else if (o.status === 'reserved') {
+      actions = `<button data-action="pay" data-id="${o.id}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">Completar pago</button>
+                 <button class="danger" data-action="cancel" data-id="${o.id}" data-status="${o.status}">Cancelar / liberar stock</button>`;
     }
     tr.innerHTML = `
       <td>${o.order_number}</td>
       <td>${moneyFmt(o.total_reference)}</td>
+      <td>${paymentProgressHtml(o)}</td>
       <td>${paymentBadgeFor(o.payment_mode)}</td>
       <td>${fulfillmentBadgeFor(o.fulfillment_type)}</td>
       <td>${created}</td>
@@ -451,6 +466,13 @@
     const id = btn.dataset.id;
     const action = btn.dataset.action;
     const ordersMsg = document.getElementById('ordersMsg');
+    const currentStatus = btn.dataset.status;
+    if (action === 'cancel') {
+      const warning = currentStatus === 'reserved'
+        ? 'Esta reserva ya tiene un abono confirmado. Al cancelarla se liberará el stock, pero cualquier devolución de dinero debe gestionarse manualmente. ¿Continuar?'
+        : '¿Cancelar esta solicitud?';
+      if (!confirm(warning)) return;
+    }
     btn.disabled = true;
 
     const rpcName = action === 'pay' ? 'confirm_order_payment' : 'cancel_order';
@@ -459,7 +481,12 @@
     btn.disabled = false;
     if (error) { showMsg(ordersMsg, error.message, 'error'); return; }
     const row = Array.isArray(data) ? data[0] : data;
-    showMsg(ordersMsg, `Solicitud ${row.order_number}: ${row.status === 'paid' ? 'marcada como pagada' : 'cancelada'}.`, 'ok');
+    const resultLabel = row.status === 'reserved'
+      ? 'abono confirmado; pieza reservada y stock apartado'
+      : row.status === 'paid'
+        ? 'pago completado'
+        : 'cancelada';
+    showMsg(ordersMsg, `Solicitud ${row.order_number}: ${resultLabel}.`, 'ok');
     loadOrders(activeStatus);
     loadInventory();
   });
@@ -473,7 +500,7 @@
 
     const { data: order, error } = await client
       .from('orders')
-      .select('id, order_number, status, total_reference, payment_mode, fulfillment_type, created_at, paid_at, cancelled_at')
+      .select('id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at')
       .eq('order_number', code)
       .maybeSingle();
 
@@ -491,16 +518,23 @@
 
     let actions = '';
     if (order.status === 'pending') {
+      const confirmLabel = order.payment_mode === 'deposit' ? 'Confirmar abono 50%' : 'Confirmar pago';
       actions = `<div class="row" style="margin-top:10px;">
-        <button data-action="pay" data-id="${order.id}">Marcar pagada</button>
-        <button class="danger" data-action="cancel" data-id="${order.id}">Cancelar</button>
+        <button data-action="pay" data-id="${order.id}" data-status="${order.status}">${confirmLabel}</button>
+        <button class="danger" data-action="cancel" data-id="${order.id}" data-status="${order.status}">Cancelar</button>
+      </div>`;
+    } else if (order.status === 'reserved') {
+      actions = `<div class="row" style="margin-top:10px;">
+        <button data-action="pay" data-id="${order.id}" data-status="${order.status}">Completar pago</button>
+        <button class="danger" data-action="cancel" data-id="${order.id}" data-status="${order.status}">Cancelar / liberar stock</button>
       </div>`;
     }
 
     resultEl.innerHTML = `
       <p><strong>${order.order_number}</strong> ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)} ${fulfillmentBadgeFor(order.fulfillment_type)}</p>
       <p style="margin:6px 0;">${itemsHtml}</p>
-      <p>Total de referencia: ${moneyFmt(order.total_reference)}</p>
+      <p>Total: ${moneyFmt(order.total_reference)} · Cobrado: ${moneyFmt(order.amount_paid || 0)} · Saldo: ${moneyFmt(Math.max(0, Number(order.total_reference) - Number(order.amount_paid || 0)))}</p>
+      ${order.reserved_at ? `<p style="margin-top:4px;color:var(--ink-soft);">Reserva confirmada: ${new Date(order.reserved_at).toLocaleString('es-PA')}</p>` : ''}
       ${actions}
     `;
 
@@ -509,6 +543,12 @@
       searchActionsEl.addEventListener('click', async (e) => {
         const btn = e.target.closest('button[data-action]');
         if (!btn) return;
+        if (btn.dataset.action === 'cancel') {
+          const warning = btn.dataset.status === 'reserved'
+            ? 'Esta reserva tiene un abono confirmado. Se liberará el stock y cualquier devolución de dinero se gestiona manualmente. ¿Continuar?'
+            : '¿Cancelar esta solicitud?';
+          if (!confirm(warning)) return;
+        }
         const rpcName = btn.dataset.action === 'pay' ? 'confirm_order_payment' : 'cancel_order';
         const { data, error } = await client.rpc(rpcName, { p_order_id: btn.dataset.id });
         if (error) { resultEl.innerHTML += `<p class="msg msg-error">${error.message}</p>`; return; }
@@ -1027,7 +1067,7 @@
 
     let query = client
       .from('orders')
-      .select('order_number, status, total_reference, payment_mode, fulfillment_type, created_at, paid_at')
+      .select('order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at')
       .order('created_at', { ascending: true });
 
     if (fromVal) query = query.gte('created_at', fromVal + 'T00:00:00');
@@ -1037,23 +1077,27 @@
     if (error) { showMsg(exportMsg, 'Error generando el archivo: ' + error.message, 'error'); return; }
     if (!data.length) { showMsg(exportMsg, 'No hay solicitudes en ese rango de fechas.', 'error'); return; }
 
-    const statusLabel = { pending: 'Pendiente', paid: 'Pagada', cancelled: 'Cancelada' };
+    const statusLabel = { pending: 'Pendiente', reserved: 'Reservada', paid: 'Pagada', cancelled: 'Cancelada' };
     const paymentLabel = { full: 'Pago completo', deposit: 'Abono 50%' };
     const fulfillmentLabel = { stock: 'Stock', backorder: 'Por pedido' };
 
-    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total de la prenda', 'Monto a cobrar', 'Fecha de creación', 'Fecha de pago'];
+    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total', 'Cobrado', 'Saldo pendiente', 'Fecha de creación', 'Fecha de reserva', 'Fecha de pago', 'Fecha de cancelación'];
     const rows = data.map(o => {
       const total = Number(o.total_reference);
-      const amountDue = o.payment_mode === 'deposit' ? Math.round(total * DEPOSIT_RATIO * 100) / 100 : total;
+      const paid = Number(o.amount_paid || 0);
+      const balance = Math.max(0, total - paid);
       return [
         o.order_number,
         statusLabel[o.status] || o.status,
         paymentLabel[o.payment_mode] || o.payment_mode,
         fulfillmentLabel[o.fulfillment_type] || o.fulfillment_type,
         total.toFixed(2),
-        amountDue.toFixed(2),
+        paid.toFixed(2),
+        balance.toFixed(2),
         new Date(o.created_at).toLocaleString('es-PA'),
-        o.paid_at ? new Date(o.paid_at).toLocaleString('es-PA') : ''
+        o.reserved_at ? new Date(o.reserved_at).toLocaleString('es-PA') : '',
+        o.paid_at ? new Date(o.paid_at).toLocaleString('es-PA') : '',
+        o.cancelled_at ? new Date(o.cancelled_at).toLocaleString('es-PA') : ''
       ];
     });
 
