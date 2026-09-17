@@ -1,27 +1,21 @@
 from pathlib import Path
+import re
 
 path = Path('index.html')
 html = path.read_text(encoding='utf-8')
 original = html
 
-old_grid = "@media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 28px; } }"
-new_grid = "@media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 24px; } }"
-if old_grid not in html:
-    raise SystemExit('Expected mobile grid rule not found')
-html = html.replace(old_grid, new_grid, 1)
-
-old_block = '''@media (max-width: 600px) {
-    .hero-wrap { margin: 0; padding: 0; }
-    .hero { padding: 36px 20px 30px; border-radius: 0; }
-    .hero-actions { flex-direction: column; align-items: stretch; gap: 14px; }
-    .hero-cta-primary { width: 100%; }
-    .hero-cta-secondary { text-align: center; }
-    .hero-trust { text-align: center; }
-    .header-inner { padding: 12px 16px; }
-    .steps { grid-template-columns: 1fr; }
-    .card-info h3 { font-size: 14.5px; }
-    .price { font-size: 15px; }
-  }'''
+# Make the one-column phone grid slightly tighter without depending on exact spacing.
+grid_pattern = re.compile(
+    r'@media\s*\(max-width:\s*600px\)\s*\{\s*\.grid\s*\{\s*grid-template-columns:\s*1fr;\s*gap:\s*28px;\s*\}\s*\}'
+)
+html, grid_count = grid_pattern.subn(
+    '@media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 24px; } }',
+    html,
+    count=1,
+)
+if grid_count != 1:
+    raise SystemExit(f'Expected one mobile grid rule, changed {grid_count}')
 
 new_block = '''@media (max-width: 600px) {
     .hero-wrap { margin: 0; padding: 0; }
@@ -71,9 +65,32 @@ new_block = '''@media (max-width: 600px) {
     .footer-inner a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; width: 100%; }
   }'''
 
-if old_block not in html:
-    raise SystemExit('Expected primary mobile block not found')
-html = html.replace(old_block, new_block, 1)
+# Find the phone media block that specifically contains .hero-wrap, then replace it.
+media_start_pattern = re.compile(r'@media\s*\(max-width:\s*600px\)\s*\{')
+replaced_mobile = False
+for match in media_start_pattern.finditer(html):
+    start = match.start()
+    depth = 0
+    end = None
+    for i in range(match.end() - 1, len(html)):
+        ch = html[i]
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end is None:
+        continue
+    block = html[start:end]
+    if '.hero-wrap' in block and '.card-info h3' in block:
+        html = html[:start] + new_block + html[end:]
+        replaced_mobile = True
+        break
+
+if not replaced_mobile:
+    raise SystemExit('Primary phone media block containing .hero-wrap not found')
 
 required = [
     '.hero h1 { font-size: clamp(30px, 9vw, 36px);',
