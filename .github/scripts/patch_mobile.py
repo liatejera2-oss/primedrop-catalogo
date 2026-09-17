@@ -5,18 +5,6 @@ path = Path('index.html')
 html = path.read_text(encoding='utf-8')
 original = html
 
-# Make the one-column phone grid slightly tighter without depending on exact spacing.
-grid_pattern = re.compile(
-    r'@media\s*\(max-width:\s*600px\)\s*\{\s*\.grid\s*\{\s*grid-template-columns:\s*1fr;\s*gap:\s*28px;\s*\}\s*\}'
-)
-html, grid_count = grid_pattern.subn(
-    '@media (max-width: 600px) { .grid { grid-template-columns: 1fr; gap: 24px; } }',
-    html,
-    count=1,
-)
-if grid_count != 1:
-    raise SystemExit(f'Expected one mobile grid rule, changed {grid_count}')
-
 new_block = '''@media (max-width: 600px) {
     .hero-wrap { margin: 0; padding: 0; }
     .hero { padding: 32px 18px 28px; border-radius: 0; gap: 0; }
@@ -65,7 +53,7 @@ new_block = '''@media (max-width: 600px) {
     .footer-inner a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; width: 100%; }
   }'''
 
-# Find the phone media block that specifically contains .hero-wrap, then replace it.
+# Find the phone media block that specifically contains the existing hero/card mobile overrides.
 media_start_pattern = re.compile(r'@media\s*\(max-width:\s*600px\)\s*\{')
 replaced_mobile = False
 for match in media_start_pattern.finditer(html):
@@ -84,13 +72,13 @@ for match in media_start_pattern.finditer(html):
     if end is None:
         continue
     block = html[start:end]
-    if '.hero-wrap' in block and '.card-info h3' in block:
+    if '.hero-wrap' in block and '.card-info h3' in block and '.price' in block:
         html = html[:start] + new_block + html[end:]
         replaced_mobile = True
         break
 
 if not replaced_mobile:
-    raise SystemExit('Primary phone media block containing .hero-wrap not found')
+    raise SystemExit('Primary phone media block containing hero/card overrides not found')
 
 required = [
     '.hero h1 { font-size: clamp(30px, 9vw, 36px);',
