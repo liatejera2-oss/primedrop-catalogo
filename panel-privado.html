@@ -259,6 +259,15 @@
   .signal-watch { color:var(--warning); background:var(--warning-bg); border-color:var(--warning-line); }
   .signal-ok { color:var(--success); background:var(--success-bg); border-color:var(--success-line); }
   .analysis-note { margin-top:12px; color:var(--ink-soft); font-size:11.5px; line-height:1.5; }
+  .cleanup-details { margin:16px 0 0; border-top:1px solid var(--panel-line); padding-top:14px; }
+  .cleanup-details summary { list-style:none; cursor:pointer; color:var(--ink-soft); font-size:12px; font-weight:700; width:max-content; }
+  .cleanup-details summary::-webkit-details-marker { display:none; }
+  .cleanup-details summary::after { content:' +'; }
+  .cleanup-details[open] summary::after { content:' −'; }
+  .cleanup-box { margin-top:12px; padding:14px; border:1px solid #ECD2D4; border-radius:12px; background:#FFF9F9; }
+  .cleanup-box p { color:var(--ink-soft); font-size:12px; line-height:1.5; margin:0 0 10px; max-width:760px; }
+  button.action-delete { background:transparent; color:#9A4B50; border-color:transparent; padding:5px 7px; min-height:30px; }
+  button.action-delete:hover { background:var(--danger-bg); color:var(--accent); }
 
   @media (max-width:900px) {
     .finance-summary { grid-template-columns:1fr; }
@@ -381,6 +390,14 @@
             <tbody id="ordersBody"></tbody>
           </table>
         </div>
+        <details class="cleanup-details">
+          <summary>Datos de prueba</summary>
+          <div class="cleanup-box">
+            <p><strong>Reiniciar solicitudes</strong> elimina el historial de solicitudes y reinicia la numeración a PD-AAAA-0001. El inventario, productos, precios, tallas y colores permanecen exactamente como están.</p>
+            <button class="danger-ghost" id="resetPracticeDataBtn">Reiniciar datos de prueba</button>
+            <div id="resetPracticeMsg" style="margin-top:10px;"></div>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -766,12 +783,13 @@
     let actions = '';
     if (o.status === 'pending') {
       const confirmLabel = o.payment_mode === 'deposit' ? 'Confirmar abono' : 'Confirmar pago';
-      actions = `<button class="action-confirm" data-action="pay" data-id="${o.id}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">${confirmLabel}</button>
-                 <button class="danger" data-action="cancel" data-id="${o.id}" data-status="${o.status}">Cancelar</button>`;
+      actions = `<button class="action-confirm" data-action="pay" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">${confirmLabel}</button>
+                 <button class="danger" data-action="cancel" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}">Cancelar</button>`;
     } else if (o.status === 'reserved') {
-      actions = `<button class="action-confirm" data-action="pay" data-id="${o.id}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">Confirmar saldo</button>
-                 <button class="danger" data-action="cancel" data-id="${o.id}" data-status="${o.status}">Cancelar reserva</button>`;
+      actions = `<button class="action-confirm" data-action="pay" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}" data-payment-mode="${o.payment_mode}">Confirmar saldo</button>
+                 <button class="danger" data-action="cancel" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}">Cancelar reserva</button>`;
     }
+    actions += `<button class="action-delete" data-action="delete" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}" title="Borra solo el registro; no modifica inventario">Borrar</button>`;
     tr.innerHTML = `
       <td>${o.order_number}</td>
       <td>${moneyFmt(o.total_reference)}</td>
@@ -792,6 +810,21 @@
     const action = btn.dataset.action;
     const ordersMsg = document.getElementById('ordersMsg');
     const currentStatus = btn.dataset.status;
+    if (action === 'delete') {
+      const code = btn.dataset.code || 'esta solicitud';
+      if (!confirm(`¿Borrar ${code} del historial?
+
+Esto elimina el registro y sus datos de análisis, pero NO modifica el inventario. No se puede deshacer.`)) return;
+      btn.disabled = true;
+      const { error } = await client.rpc('delete_order_record_no_stock', { p_order_id: id });
+      btn.disabled = false;
+      if (error) { showMsg(ordersMsg, error.message, 'error'); return; }
+      showMsg(ordersMsg, `${code} eliminado del historial. El inventario no cambió.`, 'ok');
+      loadOrders(activeStatus);
+      loadFinancialSummary();
+      if (viewLoaded.analisis) loadAnalysis();
+      return;
+    }
     if (action === 'cancel') {
       const warning = currentStatus === 'reserved'
         ? 'Esta reserva ya tiene un abono confirmado. Al cancelarla se liberará el stock, pero cualquier devolución de dinero debe gestionarse manualmente. ¿Continuar?'
@@ -815,6 +848,7 @@
     loadOrders(activeStatus);
     loadFinancialSummary();
     loadInventory();
+    if (viewLoaded.analisis) loadAnalysis();
   });
 
   // ---- Buscar por código ----
@@ -846,14 +880,18 @@
     if (order.status === 'pending') {
       const confirmLabel = order.payment_mode === 'deposit' ? 'Confirmar abono' : 'Confirmar pago';
       actions = `<div class="row" style="margin-top:10px;">
-        <button class="action-confirm" data-action="pay" data-id="${order.id}" data-status="${order.status}">${confirmLabel}</button>
-        <button class="danger" data-action="cancel" data-id="${order.id}" data-status="${order.status}">Cancelar</button>
+        <button class="action-confirm" data-action="pay" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">${confirmLabel}</button>
+        <button class="danger" data-action="cancel" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Cancelar</button>
+        <button class="action-delete" data-action="delete" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Borrar</button>
       </div>`;
     } else if (order.status === 'reserved') {
       actions = `<div class="row" style="margin-top:10px;">
-        <button class="action-confirm" data-action="pay" data-id="${order.id}" data-status="${order.status}">Confirmar saldo</button>
-        <button class="danger" data-action="cancel" data-id="${order.id}" data-status="${order.status}">Cancelar reserva</button>
+        <button class="action-confirm" data-action="pay" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Confirmar saldo</button>
+        <button class="danger" data-action="cancel" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Cancelar reserva</button>
+        <button class="action-delete" data-action="delete" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Borrar</button>
       </div>`;
+    } else {
+      actions = `<div class="row" style="margin-top:10px;"><button class="action-delete" data-action="delete" data-id="${order.id}" data-code="${order.order_number}" data-status="${order.status}">Borrar</button></div>`;
     }
 
     resultEl.innerHTML = `
@@ -869,6 +907,19 @@
       searchActionsEl.addEventListener('click', async (e) => {
         const btn = e.target.closest('button[data-action]');
         if (!btn) return;
+        if (btn.dataset.action === 'delete') {
+          const code = btn.dataset.code || order.order_number;
+          if (!confirm(`¿Borrar ${code} del historial?
+
+El inventario no se modificará.`)) return;
+          const { error } = await client.rpc('delete_order_record_no_stock', { p_order_id: btn.dataset.id });
+          if (error) { resultEl.innerHTML += `<p class="msg msg-error">${error.message}</p>`; return; }
+          resultEl.innerHTML = '<p class="msg msg-ok">Solicitud eliminada. El inventario no cambió.</p>';
+          loadOrders(activeStatus);
+          loadFinancialSummary();
+          if (viewLoaded.analisis) loadAnalysis();
+          return;
+        }
         if (btn.dataset.action === 'cancel') {
           const warning = btn.dataset.status === 'reserved'
             ? 'Esta reserva tiene un abono confirmado. Se liberará el stock y cualquier devolución de dinero se gestiona manualmente. ¿Continuar?'
@@ -882,6 +933,7 @@
         loadOrders(activeStatus);
         loadFinancialSummary();
         loadInventory();
+        if (viewLoaded.analisis) loadAnalysis();
       });
     }
   });
@@ -990,6 +1042,30 @@
   }
 
   document.getElementById('analysisWindow').addEventListener('change', loadAnalysis);
+
+  const resetPracticeDataBtn = document.getElementById('resetPracticeDataBtn');
+  if (resetPracticeDataBtn) {
+    resetPracticeDataBtn.addEventListener('click', async () => {
+      const msgEl = document.getElementById('resetPracticeMsg');
+      const ok = confirm('Esto borrará TODAS las solicitudes de prueba y reiniciará la numeración.\n\nEl inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');
+      if (!ok) return;
+      const typed = prompt('Para confirmar, escribe BORRAR');
+      if (typed !== 'BORRAR') {
+        showMsg(msgEl, 'No se realizó ningún cambio.', 'error');
+        return;
+      }
+      resetPracticeDataBtn.disabled = true;
+      const { data, error } = await client.rpc('reset_practice_orders_no_stock');
+      resetPracticeDataBtn.disabled = false;
+      if (error) { showMsg(msgEl, error.message, 'error'); return; }
+      const row = Array.isArray(data) ? data[0] : data;
+      showMsg(msgEl, `${row?.deleted_orders ?? 0} solicitudes eliminadas. La próxima solicitud será ${row?.next_order_number || 'PD-AAAA-0001'}. El inventario quedó intacto.`, 'ok');
+      document.getElementById('searchResult').innerHTML = '';
+      loadOrders(activeStatus);
+      loadFinancialSummary();
+      if (viewLoaded.analisis) loadAnalysis();
+    });
+  }
 
   // ---- Inventario ----
   async function loadInventory() {
