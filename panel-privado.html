@@ -164,6 +164,37 @@
         </table>
         </div>
       </div>
+
+      <div class="card" id="colorVariantsCard">
+        <h2>Variantes de color</h2>
+        <p class="sub" style="margin-bottom:14px;">Usa esta sección solo cuando una misma pieza se vende en varios colores. El stock se controla por combinación de color y talla. Los productos que no usan color continúan funcionando como hasta ahora.</p>
+        <div id="colorVariantsMsg"></div>
+        <div class="row" style="align-items:flex-end; margin-bottom:14px;">
+          <div style="flex:2; min-width:220px;">
+            <label for="colorProductSelect">Producto</label>
+            <select id="colorProductSelect" style="width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); font-family:inherit; font-size:14px;"></select>
+          </div>
+          <div style="flex:1; min-width:150px;">
+            <label for="variantColorName">Color</label>
+            <input type="text" id="variantColorName" placeholder="Ej. Negro" style="margin-bottom:0;">
+          </div>
+          <div><label>S</label><input type="number" min="0" id="variantColorS" value="0" style="width:64px; margin-bottom:0;"></div>
+          <div><label>M</label><input type="number" min="0" id="variantColorM" value="0" style="width:64px; margin-bottom:0;"></div>
+          <div><label>L</label><input type="number" min="0" id="variantColorL" value="0" style="width:64px; margin-bottom:0;"></div>
+          <div><label>XL</label><input type="number" min="0" id="variantColorXL" value="0" style="width:64px; margin-bottom:0;"></div>
+          <button id="saveColorVariantBtn">Guardar color</button>
+        </div>
+        <div class="row" style="margin-bottom:14px;">
+          <button class="secondary" id="disableColorVariantsBtn">Desactivar colores para este producto</button>
+          <span class="sub" style="margin:0;">Desactivar no borra los datos; solo vuelve temporalmente al stock tradicional por talla.</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Color</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th></tr></thead>
+            <tbody id="colorVariantsBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div id="viewProximos" class="view-section hidden">
@@ -450,12 +481,13 @@
 
     const { data: items } = await client
       .from('order_items')
-      .select('quantity, unit_price, product_variants(size, products(name))')
+      .select('quantity, unit_price, product_variants(size, products(name)), product_color_variants(color, size)')
       .eq('order_id', order.id);
 
-    const itemsHtml = (items || []).map(it =>
-      `${it.product_variants.products.name} — talla ${it.product_variants.size} × ${it.quantity} (${moneyFmt(it.unit_price)} c/u)`
-    ).join('<br>');
+    const itemsHtml = (items || []).map(it => {
+      const color = it.product_color_variants?.color;
+      return `${it.product_variants.products.name}${color ? ` — color ${color}` : ''} — talla ${it.product_variants.size} × ${it.quantity} (${moneyFmt(it.unit_price)} c/u)`;
+    }).join('<br>');
 
     let actions = '';
     if (order.status === 'pending') {
@@ -496,7 +528,7 @@
 
     const { data, error } = await client
       .from('products')
-      .select('id, slug, name, sale_mode, regular_price, active, published_once, product_variants(id, size, stock_on_hand)')
+      .select('id, slug, name, sale_mode, regular_price, active, published_once, uses_color_variants, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
       .order('name');
 
     if (error) { showMsg(msgEl, 'Error cargando inventario: ' + error.message, 'error'); return; }
@@ -510,10 +542,16 @@
     rows.forEach(p => {
       const variants = {};
       (p.product_variants || []).forEach(v => { variants[v.size] = v; });
-      const total = SIZE_ORDER.reduce((sum, s) => sum + (variants[s] ? variants[s].stock_on_hand : 0), 0);
+      const colorVariants = p.product_color_variants || [];
+      const colorTotalBySize = {};
+      SIZE_ORDER.forEach(size => { colorTotalBySize[size] = colorVariants.filter(v => v.size === size).reduce((sum, v) => sum + v.stock_on_hand, 0); });
+      const total = p.uses_color_variants
+        ? SIZE_ORDER.reduce((sum, s) => sum + colorTotalBySize[s], 0)
+        : SIZE_ORDER.reduce((sum, s) => sum + (variants[s] ? variants[s].stock_on_hand : 0), 0);
 
       const tr = document.createElement('tr');
       const sizeCells = SIZE_ORDER.map(s => {
+        if (p.uses_color_variants) return `<td>${colorTotalBySize[s]}</td>`;
         const v = variants[s];
         if (!v) return '<td>—</td>';
         return `<td><input type="number" min="0" class="stock-input" data-variant-id="${v.id}" value="${v.stock_on_hand}"></td>`;
@@ -525,23 +563,26 @@
         : '<span class="badge badge-cancelled">Oculto</span>';
 
       tr.innerHTML = `
-        <td>${p.name}</td>
+        <td>${p.name}${p.uses_color_variants ? ' <span class="badge badge-full">Colores</span>' : ''}</td>
         <td><input type="number" min="0" step="0.01" class="stock-input" data-price-input value="${p.regular_price ?? ''}" placeholder="$"></td>
         ${sizeCells}
         <td>${total}</td>
         <td>${statusLabel}</td>
         <td>${catalogBadge}</td>
         <td class="row" style="gap:6px; flex-wrap:nowrap;">
-          <button class="secondary save-stock-btn" data-product-id="${p.id}">Guardar</button>
+          <button class="secondary save-stock-btn" data-product-id="${p.id}">${p.uses_color_variants ? 'Guardar precio' : 'Guardar'}</button>
+          <button class="secondary edit-colors-btn" data-product-id="${p.id}">Colores</button>
           <button class="${p.active ? 'danger' : 'secondary'} toggle-active-btn" data-product-id="${p.id}" data-active="${p.active ? '1' : '0'}" data-name="${p.name}" title="${p.active ? 'Bajar del catálogo público' : 'Publicar en el catálogo público'}">${p.active ? 'Bajar' : 'Publicar'}</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
+    await loadColorProductOptions();
   }
 
   document.getElementById('inventoryBody').addEventListener('click', async (e) => {
     const saveBtn = e.target.closest('.save-stock-btn');
+    const editColorsBtn = e.target.closest('.edit-colors-btn');
     const toggleBtn = e.target.closest('.toggle-active-btn');
     const msgEl = document.getElementById('inventoryMsg');
 
@@ -577,6 +618,14 @@
       return;
     }
 
+    if (editColorsBtn) {
+      const select = document.getElementById('colorProductSelect');
+      select.value = editColorsBtn.dataset.productId;
+      await loadColorVariants();
+      document.getElementById('colorVariantsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
     if (toggleBtn) {
       const isActive = toggleBtn.dataset.active === '1';
       const name = toggleBtn.dataset.name;
@@ -599,6 +648,87 @@
       // vista para que se mueva de una lista a la otra si el admin la visita.
       viewLoaded.proximos = false;
     }
+  });
+
+  // ---- Variantes de color ----
+  async function loadColorProductOptions(selectedId = null) {
+    const select = document.getElementById('colorProductSelect');
+    const { data, error } = await client.from('products').select('id, name, uses_color_variants').order('name');
+    if (error) return;
+    const current = selectedId || select.value;
+    select.innerHTML = (data || []).map(p => `<option value="${p.id}">${p.name}${p.uses_color_variants ? ' · colores activos' : ''}</option>`).join('');
+    if (current && (data || []).some(p => p.id === current)) select.value = current;
+    await loadColorVariants();
+  }
+
+  async function loadColorVariants() {
+    const productId = document.getElementById('colorProductSelect').value;
+    const tbody = document.getElementById('colorVariantsBody');
+    const msgEl = document.getElementById('colorVariantsMsg');
+    tbody.innerHTML = '';
+    showMsg(msgEl, '', null);
+    if (!productId) return;
+    const { data, error } = await client.from('product_color_variants')
+      .select('id, color, size, stock_on_hand')
+      .eq('product_id', productId)
+      .order('color');
+    if (error) { showMsg(msgEl, 'Error cargando colores: ' + error.message, 'error'); return; }
+    const grouped = {};
+    (data || []).forEach(v => {
+      if (!grouped[v.color]) grouped[v.color] = {};
+      grouped[v.color][v.size] = v;
+    });
+    const colors = Object.keys(grouped);
+    if (!colors.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink-soft);">Este producto todavía no tiene colores configurados.</td></tr>';
+      return;
+    }
+    colors.forEach(color => {
+      const total = SIZE_ORDER.reduce((sum, s) => sum + (grouped[color][s]?.stock_on_hand || 0), 0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${color}</td>${SIZE_ORDER.map(s => `<td>${grouped[color][s]?.stock_on_hand ?? 0}</td>`).join('')}<td>${total}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('colorProductSelect').addEventListener('change', loadColorVariants);
+
+  document.getElementById('saveColorVariantBtn').addEventListener('click', async () => {
+    const msgEl = document.getElementById('colorVariantsMsg');
+    const productId = document.getElementById('colorProductSelect').value;
+    const color = document.getElementById('variantColorName').value.trim();
+    if (!productId || !color) { showMsg(msgEl, 'Selecciona un producto y escribe el color.', 'error'); return; }
+    const stocks = {};
+    SIZE_ORDER.forEach(s => { stocks[s] = Math.max(0, parseInt(document.getElementById('variantColor' + s).value, 10) || 0); });
+    const rows = SIZE_ORDER.map(size => ({ product_id: productId, color, size, stock_on_hand: stocks[size] }));
+    const btn = document.getElementById('saveColorVariantBtn');
+    btn.disabled = true;
+    const { error } = await client.from('product_color_variants').upsert(rows, { onConflict: 'product_id,color,size' });
+    if (!error) {
+      const { error: flagErr } = await client.from('products').update({ uses_color_variants: true }).eq('id', productId);
+      if (flagErr) {
+        btn.disabled = false;
+        showMsg(msgEl, 'Los colores se guardaron, pero no se pudieron activar: ' + flagErr.message, 'error');
+        return;
+      }
+    }
+    btn.disabled = false;
+    if (error) { showMsg(msgEl, 'Error guardando color: ' + error.message, 'error'); return; }
+    showMsg(msgEl, `Color "${color}" guardado. El producto ya usa inventario por color y talla.`, 'ok');
+    await loadColorProductOptions(productId);
+    await loadInventory();
+  });
+
+  document.getElementById('disableColorVariantsBtn').addEventListener('click', async () => {
+    const productId = document.getElementById('colorProductSelect').value;
+    const msgEl = document.getElementById('colorVariantsMsg');
+    if (!productId) return;
+    if (!confirm('¿Desactivar las variantes de color para este producto? Los datos de color se conservarán.')) return;
+    const { error } = await client.from('products').update({ uses_color_variants: false }).eq('id', productId);
+    if (error) { showMsg(msgEl, 'Error desactivando colores: ' + error.message, 'error'); return; }
+    showMsg(msgEl, 'Variantes de color desactivadas. El producto vuelve a usar stock por talla.', 'ok');
+    await loadColorProductOptions(productId);
+    await loadInventory();
   });
 
   // ---- Próximos drops: preparar precio/tallas y publicar al catálogo ----

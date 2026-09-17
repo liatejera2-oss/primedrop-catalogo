@@ -208,7 +208,9 @@
   .purchase-price { font-size: 15px; color: var(--ink-soft); margin-bottom: 20px; }
   .purchase-field { margin-bottom: 18px; }
   .purchase-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
-  .purchase-sizes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .purchase-colors, .purchase-sizes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .purchase-color-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .purchase-color-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
   .purchase-size-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-width: 44px; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
   .purchase-size-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
   .purchase-size-btn.backorder { border-style: dashed; }
@@ -798,6 +800,11 @@
       <h3 id="purchaseTitle">Producto</h3>
       <p class="purchase-price" id="purchasePrice">$0.00</p>
 
+      <div class="purchase-field" id="purchaseColorField" hidden>
+        <label>Color</label>
+        <div class="purchase-colors" id="purchaseColors" role="group" aria-label="Selecciona un color"></div>
+      </div>
+
       <div class="purchase-field">
         <label>Talla</label>
         <div class="purchase-sizes" id="purchaseSizes" role="group" aria-label="Selecciona una talla"></div>
@@ -1163,13 +1170,36 @@
     function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
 
     function totalStock(product) {
+      if (product.uses_color_variants && product.colors && product.colors.length) {
+        return product.colors.reduce((sum, color) => sum + SIZE_ORDER.reduce((inner, size) => {
+          const variant = product.colorVariants[color]?.[size];
+          return inner + (variant ? variant.stock_on_hand : 0);
+        }, 0), 0);
+      }
       return SIZE_ORDER.reduce((sum, s) => sum + (product.variants[s] ? product.variants[s].stock_on_hand : 0), 0);
+    }
+
+    function availableSizesForProduct(product, color = null) {
+      if (product.uses_color_variants && product.colors && product.colors.length) {
+        const source = color ? (product.colorVariants[color] || {}) : null;
+        if (source) return SIZE_ORDER.filter(size => source[size]);
+        return SIZE_ORDER.filter(size => product.colors.some(c => product.colorVariants[c]?.[size]));
+      }
+      return SIZE_ORDER.filter(size => product.variants[size]);
+    }
+
+    function stockForSelection(product, size, color = null) {
+      if (product.uses_color_variants && product.colors && product.colors.length) {
+        if (color) return product.colorVariants[color]?.[size]?.stock_on_hand ?? 0;
+        return product.colors.reduce((sum, c) => sum + (product.colorVariants[c]?.[size]?.stock_on_hand ?? 0), 0);
+      }
+      return product.variants[size]?.stock_on_hand ?? 0;
     }
 
     async function loadCatalog() {
       const { data, error } = await client
         .from('products')
-        .select('id, slug, name, regular_price, preorder_price, sale_mode, active, product_variants(id, size, stock_on_hand)')
+        .select('id, slug, name, regular_price, preorder_price, sale_mode, active, uses_color_variants, product_variants(id, size, stock_on_hand), product_color_variants(id, color, size, stock_on_hand)')
         .eq('active', true);
 
       if (error) {
@@ -1181,7 +1211,13 @@
       data.forEach(p => {
         const variants = {};
         (p.product_variants || []).forEach(v => { variants[v.size] = v; });
-        catalog[p.slug] = { ...p, variants };
+        const colorVariants = {};
+        (p.product_color_variants || []).forEach(v => {
+          if (!colorVariants[v.color]) colorVariants[v.color] = {};
+          colorVariants[v.color][v.size] = v;
+        });
+        const colors = Object.keys(colorVariants);
+        catalog[p.slug] = { ...p, variants, colorVariants, colors };
       });
 
       renderAllSizeRows();
@@ -1264,8 +1300,9 @@
         const product = catalog[slug];
         if (!product) { row.innerHTML = '<span class="size-loading">Aún no disponible para compra</span>'; return; }
         let anyBackorder = false;
-        row.innerHTML = SIZE_ORDER.filter(size => product.variants[size]).map(size => {
-          const stock = product.variants[size].stock_on_hand;
+        const sizes = availableSizesForProduct(product);
+        row.innerHTML = sizes.map(size => {
+          const stock = stockForSelection(product, size);
           const backorder = product.sale_mode === 'in_stock' && stock <= 0;
           if (backorder) anyBackorder = true;
           return `<button type="button" class="size-chip${backorder ? ' backorder' : ''}" data-size="${size}" data-stock="${stock}">${size}</button>`;
@@ -1277,8 +1314,8 @@
           caption.className = 'size-caption';
           row.insertAdjacentElement('afterend', caption);
         }
-        caption.textContent = anyBackorder ? 'Talla punteada: disponible por pedido.' : '';
-        caption.style.display = anyBackorder ? '' : 'none';
+        caption.textContent = product.uses_color_variants ? 'Disponibilidad según color y talla.' : (anyBackorder ? 'Talla punteada: disponible por pedido.' : '');
+        caption.style.display = (product.uses_color_variants || anyBackorder) ? '' : 'none';
       });
     }
 
@@ -1333,6 +1370,8 @@
     const titleEl = document.getElementById('purchaseTitle');
     const saleModeEl = document.getElementById('purchaseSaleMode');
     const priceEl = document.getElementById('purchasePrice');
+    const colorFieldEl = document.getElementById('purchaseColorField');
+    const colorsEl = document.getElementById('purchaseColors');
     const sizesEl = document.getElementById('purchaseSizes');
     const qtyInput = document.getElementById('purchaseQty');
     const qtyMinus = document.getElementById('qtyMinus');
@@ -1352,6 +1391,7 @@
     const closeSuccessBtn = document.getElementById('purchaseCloseSuccess');
 
     let currentSlug = null;
+    let currentColor = null;
     let currentSize = null;
     let currentPaymentMode = 'full';
     let lastMessage = '';
@@ -1388,14 +1428,40 @@
       updateTotal();
     }
 
+    function renderPurchaseSizes() {
+      const product = catalog[currentSlug];
+      if (!product) return [];
+      const sizes = availableSizesForProduct(product, currentColor);
+      sizesEl.innerHTML = sizes.map(size => {
+        const stock = stockForSelection(product, size, currentColor);
+        const backorder = product.sale_mode === 'in_stock' && stock <= 0;
+        return `<button type="button" class="purchase-size-btn${backorder ? ' backorder' : ''}" data-size="${size}" aria-pressed="false">${size}</button>`;
+      }).join('');
+      return sizes;
+    }
+
+    function selectColor(color) {
+      currentColor = color;
+      currentSize = null;
+      colorsEl.querySelectorAll('.purchase-color-btn').forEach(btn => {
+        btn.setAttribute('aria-pressed', btn.dataset.color === color ? 'true' : 'false');
+      });
+      const sizes = renderPurchaseSizes();
+      if (sizes.length) selectSize(sizes[0]);
+      else {
+        qtyInput.value = 1;
+        qtyInput.max = 1;
+        stockNoteEl.textContent = 'No hay tallas configuradas para este color.';
+      }
+    }
+
     function selectSize(size) {
       currentSize = size;
       sizesEl.querySelectorAll('.purchase-size-btn').forEach(btn => {
         btn.setAttribute('aria-pressed', btn.dataset.size === size ? 'true' : 'false');
       });
       const product = catalog[currentSlug];
-      const variant = product.variants[size];
-      const stock = variant ? variant.stock_on_hand : 0;
+      const stock = stockForSelection(product, size, currentColor);
 
       if (product.sale_mode === 'in_stock' && stock > 0) {
         qtyInput.max = stock;
@@ -1419,6 +1485,7 @@
       const product = catalog[slug];
       if (!product) return;
       currentSlug = slug;
+      currentColor = null;
       currentSize = null;
       errorEl.hidden = true;
       stepForm.hidden = false;
@@ -1430,18 +1497,23 @@
       const unitPrice = product.sale_mode === 'preorder' ? product.preorder_price : product.regular_price;
       priceEl.textContent = unitPrice != null ? moneyFmt(unitPrice) + ' c/u' : 'Precio por confirmar';
 
-      const availableSizes = SIZE_ORDER.filter(s => product.variants[s]);
-      sizesEl.innerHTML = availableSizes.map(size => {
-        const stock = product.variants[size].stock_on_hand;
-        const backorder = product.sale_mode === 'in_stock' && stock <= 0;
-        return `<button type="button" class="purchase-size-btn${backorder ? ' backorder' : ''}" data-size="${size}" aria-pressed="false">${size}</button>`;
-      }).join('');
+      const hasColors = product.uses_color_variants && product.colors && product.colors.length;
+      colorFieldEl.hidden = !hasColors;
+      colorsEl.innerHTML = hasColors ? product.colors.map(color =>
+        `<button type="button" class="purchase-color-btn" data-color="${color}" aria-pressed="false">${color}</button>`
+      ).join('') : '';
 
       selectPaymentMode('full');
-
-      if (availableSizes.length) {
-        selectSize(availableSizes[0]);
+      let availableSizes = [];
+      if (hasColors) {
+        selectColor(product.colors[0]);
+        availableSizes = availableSizesForProduct(product, product.colors[0]);
       } else {
+        availableSizes = renderPurchaseSizes();
+        if (availableSizes.length) selectSize(availableSizes[0]);
+      }
+
+      if (!availableSizes.length) {
         qtyInput.value = 1;
         qtyInput.max = 1;
         stockNoteEl.textContent = '';
@@ -1480,6 +1552,12 @@
         return false;
       }
     }
+
+    colorsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.purchase-color-btn');
+      if (!btn) return;
+      selectColor(btn.dataset.color);
+    });
 
     sizesEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.purchase-size-btn');
@@ -1529,12 +1607,28 @@
       submitBtn.textContent = 'Procesando…';
       errorEl.hidden = true;
 
-      const { data, error } = await client.rpc('create_purchase_request', {
+      const product = catalog[currentSlug];
+      if (product.uses_color_variants && !currentColor) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Continuar';
+        errorEl.textContent = 'Selecciona un color.';
+        errorEl.hidden = false;
+        return;
+      }
+      const rpcName = product.uses_color_variants ? 'create_purchase_request_variant' : 'create_purchase_request';
+      const rpcArgs = product.uses_color_variants ? {
+        p_product_slug: currentSlug,
+        p_color: currentColor,
+        p_size: currentSize,
+        p_quantity: qty,
+        p_payment_mode: currentPaymentMode
+      } : {
         p_product_slug: currentSlug,
         p_size: currentSize,
         p_quantity: qty,
         p_payment_mode: currentPaymentMode
-      });
+      };
+      const { data, error } = await client.rpc(rpcName, rpcArgs);
 
       submitBtn.disabled = false;
       submitBtn.textContent = 'Continuar';
@@ -1566,6 +1660,7 @@
       const message = 'Hola, Prime Drop. Creé una solicitud desde el catálogo.\n\n' +
         `Código: ${row.order_number}\n` +
         `Producto: ${row.product_name}\n` +
+        (row.color ? `Color: ${row.color}\n` : '') +
         `Talla: ${row.size}\n` +
         `Cantidad: ${row.quantity}\n` +
         `Precio unitario: ${moneyFmt(row.unit_price)}\n` +
