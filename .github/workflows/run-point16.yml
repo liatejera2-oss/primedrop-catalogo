@@ -36,7 +36,8 @@ jobs:
           assert 'supabase-js@2/dist/umd/supabase.js" defer' not in s
           assert 'id="purchaseModal" role="dialog" aria-modal="true" aria-labelledby="purchaseTitle" aria-hidden="true"' in s
           assert 'id="lightbox" role="dialog" aria-modal="true" aria-label="Foto ampliada del producto" aria-hidden="true"' in s
-          scripts=re.findall(r'<script>(.*?)</script>', s, flags=re.S)
+          clean=re.sub(r'<!--.*?-->', '', s, flags=re.S)
+          scripts=re.findall(r'<script>(.*?)</script>', clean, flags=re.S)
           js='\n'.join(scripts)
           with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
               f.write(js); path=f.name
