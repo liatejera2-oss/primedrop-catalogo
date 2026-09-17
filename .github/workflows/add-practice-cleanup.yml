@@ -12,14 +12,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: intervention/12-ux-finance-analysis
-      - name: Repair current anchor and apply practice cleanup controls
+      - name: Apply practice cleanup controls
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('.github/scripts/add_practice_cleanup_v2.py')
           s=p.read_text(encoding='utf-8')
-          old="""        document.getElementById('searchBtn').click();\n        loadOrders(activeStatus);\n        loadInventory();\n"""
-          new="""        document.getElementById('searchBtn').click();\n        loadOrders(activeStatus);\n        loadFinancialSummary();\n        loadInventory();\n"""
+          old="        document.getElementById('searchBtn').click();\n        loadOrders(activeStatus);\n        loadInventory();\n"
+          new="        document.getElementById('searchBtn').click();\n        loadOrders(activeStatus);\n        loadFinancialSummary();\n        loadInventory();\n"
           if old in s:
               s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
@@ -29,12 +29,7 @@ jobs:
           from pathlib import Path
           p=Path('panel-privado.html')
           s=p.read_text(encoding='utf-8')
-          bad="""const ok = confirm('Esto borrará TODAS las solicitudes de prueba y reiniciará la numeración.
-
-El inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');"""
-          good="const ok = confirm('Esto borrará TODAS las solicitudes de prueba y reiniciará la numeración.\\n\\nEl inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');"
-          if bad in s:
-              s=s.replace(bad,good,1)
+          s=s.replace("reiniciará la numeración.\n\nEl inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');", "reiniciará la numeración.\\n\\nEl inventario, productos, precios, tallas y colores NO se modificarán. ¿Continuar?');", 1)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Validate and commit
