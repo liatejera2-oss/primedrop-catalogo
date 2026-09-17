@@ -28,3 +28,5 @@ jobs:
           git add index.html
           git commit -m "Refine mobile layout and touch behavior"
           git push origin HEAD:intervention/06-mobile
+
+# trigger mobile intervention
