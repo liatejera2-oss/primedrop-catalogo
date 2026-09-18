@@ -1,0 +1,39 @@
+name: PRIME DROP Point 19 manual sales
+on:
+  push:
+    branches: [intervention/19-manual-sales]
+    paths: ['.github/scripts/point19_manual_sales.py', '.github/workflows/run-point19-manual-sales.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/19-manual-sales
+      - name: Patch manual sales
+        run: python .github/scripts/point19_manual_sales.py
+      - name: Validate
+        run: |
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re, tempfile, subprocess
+          s=Path('panel-privado.html').read_text(encoding='utf-8')
+          for token in ['Registrar venta directa','create_manual_sale','manualSaleProduct','manualSalePayment','manualSaleHint']:
+              assert token in s, token
+          clean=re.sub(r'<!--.*?-->', '', s, flags=re.S)
+          scripts=re.findall(r'<script>(.*?)</script>', clean, flags=re.S)
+          js='\n'.join(scripts)
+          with tempfile.NamedTemporaryFile('w',suffix='.js',delete=False,encoding='utf-8') as f:
+              f.write(js); path=f.name
+          subprocess.run(['node','--check',path],check=True)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add panel-privado.html
+          git commit -m "Add internal manual sales entry"
+          git push origin HEAD:intervention/19-manual-sales
