@@ -58,6 +58,9 @@
      números ilegibles. input.stock-input iguala esa especificidad. */
   input.stock-input { width: 46px; padding: 6px 4px; margin-bottom: 0; font-size: 14px; text-align: center; }
   input.stock-input[data-price-input], input.stock-input[data-price] { width: 64px; }
+  .currency-field { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .currency-prefix { color:var(--ink-soft); font-size:11px; font-weight:700; letter-spacing:.02em; }
+  .currency-field.compact-currency input.stock-input { width:78px; }
   .table-scroll button { padding: 6px 12px; font-size: 12.5px; }
   /* Quita las flechas nativas del input number — en columnas angostas se
      comían el ancho y dejaban el dígito ilegible (se veía como puntos). */
@@ -349,17 +352,17 @@
       <div class="finance-summary" id="financialSummary" aria-label="Resumen financiero básico">
         <section class="finance-block">
           <div class="finance-kicker">Caja</div>
-          <div class="finance-primary"><span>Caja recibida</span><strong id="summaryCollected">$0.00</strong></div>
+          <div class="finance-primary"><span>Caja recibida</span><strong id="summaryCollected">USD $0.00</strong></div>
           <div class="finance-split">
-            <div class="finance-metric"><span>Ventas pagadas</span><strong id="summaryPaidSales">$0.00</strong><small id="summaryPaidCount">0 ventas pagadas.</small></div>
-            <div class="finance-metric"><span>Abonos vigentes</span><strong id="summaryReserved">$0.00</strong><small id="summaryReservedCount">0 reservas activas.</small></div>
+            <div class="finance-metric"><span>Ventas pagadas</span><strong id="summaryPaidSales">USD $0.00</strong><small id="summaryPaidCount">0 ventas pagadas.</small></div>
+            <div class="finance-metric"><span>Abonos vigentes</span><strong id="summaryReserved">USD $0.00</strong><small id="summaryReservedCount">0 reservas activas.</small></div>
           </div>
         </section>
         <section class="finance-block finance-block-pending">
           <div class="finance-kicker">Pendiente</div>
           <div class="finance-split">
-            <div class="finance-metric"><span>Solicitudes sin confirmar</span><strong id="summaryPendingRequests">$0.00</strong><small id="summaryPendingCount">0 solicitudes pendientes.</small></div>
-            <div class="finance-metric"><span>Saldo de reservas</span><strong id="summaryReservedBalance">$0.00</strong><small>Por cobrar de reservas activas.</small></div>
+            <div class="finance-metric"><span>Solicitudes sin confirmar</span><strong id="summaryPendingRequests">USD $0.00</strong><small id="summaryPendingCount">0 solicitudes pendientes.</small></div>
+            <div class="finance-metric"><span>Saldo de reservas</span><strong id="summaryReservedBalance">USD $0.00</strong><small>Por cobrar de reservas activas.</small></div>
           </div>
         </section>
         <div class="finance-note">Caja recibida sí es dinero confirmado. Las solicitudes pendientes no se consideran ingreso hasta que confirmes el pago.</div>
@@ -433,7 +436,7 @@
         <div class="table-scroll inventory-scroll">
         <table>
           <thead>
-            <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th>Acciones</th></tr>
+            <tr><th>Producto</th><th>Precio (USD)</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th>Acciones</th></tr>
           </thead>
           <tbody id="inventoryBody"></tbody>
         </table>
@@ -487,7 +490,7 @@
         <div class="table-scroll upcoming-scroll">
         <table>
           <thead>
-            <tr><th>Producto</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Estado</th><th></th></tr>
+            <tr><th>Producto</th><th>Precio (USD)</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Estado</th><th></th></tr>
           </thead>
           <tbody id="upcomingBody"></tbody>
         </table>
@@ -510,8 +513,8 @@
               <input type="text" id="newProductCategory" placeholder="T-shirt / Polo / Jacket" style="margin-bottom:0;">
             </div>
             <div style="flex:1; min-width:100px;">
-              <label for="newProductPrice">Precio</label>
-              <input type="number" min="0" step="0.01" id="newProductPrice" placeholder="$" style="margin-bottom:0;">
+              <label for="newProductPrice">Precio (USD)</label>
+              <div class="currency-field"><span class="currency-prefix">USD $</span><input type="number" min="0" step="0.01" id="newProductPrice" placeholder="0.00" style="margin-bottom:0;"></div>
             </div>
           </div>
           <div class="row" style="margin-top:12px; align-items:flex-end;">
@@ -527,7 +530,7 @@
           <div id="draftsMsg"></div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>S</th><th>M</th><th>L</th><th>XL</th><th></th></tr></thead>
+              <thead><tr><th>Producto</th><th>Categoría</th><th>Precio (USD)</th><th>S</th><th>M</th><th>L</th><th>XL</th><th></th></tr></thead>
               <tbody id="draftsBody"></tbody>
             </table>
           </div>
@@ -564,7 +567,7 @@
           <span>Solicitadas <strong id="analysisRequested">0</strong></span>
           <span>Confirmadas <strong id="analysisConfirmed">0</strong></span>
           <span>Por pedido <strong id="analysisBackorder">0</strong></span>
-          <span>Valor solicitado <strong id="analysisValue">$0.00</strong></span>
+          <span>Valor solicitado <strong id="analysisValue">USD $0.00</strong></span>
         </div>
         <div class="demand-chart">
           <h3>Qué se está pidiendo más</h3>
@@ -613,7 +616,7 @@
     el.innerHTML = text ? `<p class="msg msg-${type}">${text}</p>` : '';
   }
 
-  function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
+  function moneyFmt(n) { return 'USD $' + Number(n).toFixed(2); }
 
   function colorHexForName(name) {
     const key = String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1185,7 +1188,7 @@ El inventario no se modificará.`)) return;
 
       tr.innerHTML = `
         <td><input type="text" class="product-name-input" data-name-input value="${escapeAttr(p.name)}" aria-label="Nombre del producto">${colorBadge}</td>
-        <td><input type="number" min="0" step="0.01" class="stock-input" data-price-input value="${p.regular_price ?? ''}" placeholder="$"></td>
+        <td><div class="currency-field compact-currency"><span class="currency-prefix">USD $</span><input type="number" min="0" step="0.01" class="stock-input" data-price-input value="${p.regular_price ?? ''}" placeholder="0.00" aria-label="Precio en USD"></div></td>
         ${sizeCells}
         <td><strong>${total}</strong></td>
         <td>${statusLabel}</td>
@@ -1468,7 +1471,7 @@ El inventario no se modificará.`)) return;
       const displayName = existing?.name || item.name;
       tr.innerHTML = `
         <td><input type="text" class="upcoming-name-input" data-upcoming-name value="${escapeAttr(displayName)}" aria-label="Nombre del próximo drop"></td>
-        <td><input type="number" min="0" step="0.01" class="stock-input" data-price value="${priceVal}" placeholder="$"></td>
+        <td><div class="currency-field compact-currency"><span class="currency-prefix">USD $</span><input type="number" min="0" step="0.01" class="stock-input" data-price value="${priceVal}" placeholder="0.00" aria-label="Precio en USD"></div></td>
         ${sizeCells}
         <td><span class="badge badge-pending">${isSaved ? 'Borrador' : 'Pendiente'}</span></td>
         <td><div class="actions-cell">
@@ -1721,7 +1724,7 @@ El inventario no se modificará.`)) return;
     const paymentLabel = { full: 'Pago completo', deposit: 'Abono 50%' };
     const fulfillmentLabel = { stock: 'Stock', backorder: 'Por pedido' };
 
-    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total', 'Cobrado', 'Saldo pendiente', 'Fecha de creación', 'Fecha de reserva', 'Fecha de pago', 'Fecha de cancelación'];
+    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total (USD)', 'Cobrado (USD)', 'Saldo pendiente (USD)', 'Fecha de creación', 'Fecha de reserva', 'Fecha de pago', 'Fecha de cancelación'];
     const rows = data.map(o => {
       const total = Number(o.total_reference);
       const paid = Number(o.amount_paid || 0);
