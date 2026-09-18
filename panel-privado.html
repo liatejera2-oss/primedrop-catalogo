@@ -281,6 +281,14 @@
   button.action-delete { background:transparent; color:#9A4B50; border-color:transparent; padding:5px 7px; min-height:30px; }
   button.action-delete:hover { background:var(--danger-bg); color:var(--accent); }
 
+  .purchase-box { border:1px solid var(--panel-line); border-radius:12px; padding:14px; background:#FAFAF8; margin-bottom:14px; }
+  .purchase-form { display:grid; grid-template-columns:130px minmax(190px,1.5fr) 90px 150px 145px 150px auto; gap:10px; align-items:end; }
+  .purchase-form input, .purchase-form select { width:100%; margin:0; }
+  .purchase-form label { margin-bottom:5px; }
+  .purchase-scroll table { min-width:980px; }
+  .purchase-note { margin:9px 0 14px; color:var(--ink-soft); font-size:11.5px; line-height:1.45; }
+  @media (max-width:1100px) { .purchase-form { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media (max-width:700px) { .purchase-form { grid-template-columns:1fr; } }
   @media (max-width:900px) {
     .finance-summary { grid-template-columns:1fr; }
     .analysis-header { flex-direction:column; }
@@ -483,6 +491,25 @@
     </div>
 
     <div id="viewProximos" class="view-section hidden">
+      <div class="card">
+        <h2>Compras y reinversión</h2>
+        <p class="section-intro">Registra reposiciones y compras de nuevos drops. El stock solo cambia cuando confirmas que la mercancía llegó.</p>
+        <div id="purchasesMsg"></div>
+        <div class="purchase-box">
+          <div class="purchase-form">
+            <div><label for="purchaseType">Tipo</label><select id="purchaseType"><option value="restock">Reposición</option><option value="new_drop">Nuevo drop</option></select></div>
+            <div><label for="purchaseProductSelect">Producto</label><select id="purchaseProductSelect"></select></div>
+            <div><label for="purchaseQty">Cantidad</label><input type="number" min="1" id="purchaseQty" value="1"></div>
+            <div><label for="purchaseMerchandiseCost">Mercancía (USD)</label><div class="currency-field"><span class="currency-prefix">USD $</span><input type="number" min="0" step="0.01" id="purchaseMerchandiseCost" placeholder="0.00"></div></div>
+            <div><label for="purchaseLogisticsCost">Logística (USD)</label><div class="currency-field"><span class="currency-prefix">USD $</span><input type="number" min="0" step="0.01" id="purchaseLogisticsCost" value="0"></div></div>
+            <div><label for="purchaseDate">Fecha</label><input type="date" id="purchaseDate"></div>
+            <button id="registerPurchaseBtn">Registrar compra</button>
+          </div>
+          <p class="purchase-note">Mercancía = total pagado al proveedor. Logística = costo directamente asociado a traer esa compra. Registrar no aumenta stock; <strong>Recibir</strong> sí lo hace.</p>
+        </div>
+        <div class="table-scroll purchase-scroll"><table><thead><tr><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Mercancía</th><th>Logística</th><th>Total</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="purchasesBody"></tbody></table></div>
+      </div>
+
       <div class="card">
         <h2>Próximos drops</h2>
         <p class="section-intro">Prepara precio y stock. <strong>Guardar</strong> conserva el borrador; <strong>Publicar</strong> mueve la pieza al catálogo disponible y luego se administra desde Inventario.</p>
@@ -706,7 +733,7 @@
       viewSections[key].classList.toggle('hidden', key !== view);
     });
     if (view === 'inventario' && !viewLoaded.inventario) { loadInventory(); viewLoaded.inventario = true; }
-    if (view === 'proximos' && !viewLoaded.proximos) { loadUpcoming(); loadDrafts(); viewLoaded.proximos = true; }
+    if (view === 'proximos' && !viewLoaded.proximos) { loadUpcoming(); loadDrafts(); loadPurchases(); loadPurchaseOptions(); viewLoaded.proximos = true; }
     if (view === 'analisis') loadAnalysis();
   }
 
@@ -717,7 +744,7 @@
   document.getElementById('refreshBtn').addEventListener('click', () => {
     if (currentView === 'solicitudes') { loadOrders(activeStatus); loadFinancialSummary(); }
     if (currentView === 'inventario') loadInventory();
-    if (currentView === 'proximos') { loadUpcoming(); loadDrafts(); }
+    if (currentView === 'proximos') { loadUpcoming(); loadDrafts(); loadPurchases(); loadPurchaseOptions(); }
     if (currentView === 'analisis') loadAnalysis();
   });
 
@@ -1409,6 +1436,55 @@ El inventario no se modificará.`)) return;
     await loadColorProductOptions(productId);
     await loadInventory();
   });
+
+  // ---- Compras / reinversión ----
+  async function loadPurchaseOptions() {
+    const type=document.getElementById('purchaseType').value;
+    const sel=document.getElementById('purchaseProductSelect');
+    if (type === 'restock') {
+      const {data,error}=await client.from('products').select('slug,name,active').eq('published_once',true).eq('is_upcoming',false).order('name');
+      if(error){ sel.innerHTML='<option value="">No se pudo cargar</option>'; return; }
+      sel.innerHTML=(data||[]).map(p=>`<option value="${escapeAttr(p.slug)}" data-name="${escapeAttr(p.name)}">${escapeAttr(p.name)}${p.active?'':' · oculto'}</option>`).join('');
+      return;
+    }
+    const {data:drafts}=await client.from('products').select('slug,name').eq('published_once',false).eq('active',false);
+    const map=new Map(); UPCOMING_PRODUCTS.forEach(p=>map.set(p.slug,p)); (drafts||[]).forEach(p=>map.set(p.slug,p));
+    sel.innerHTML=Array.from(map.values()).sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`<option value="${escapeAttr(p.slug)}" data-name="${escapeAttr(p.name)}">${escapeAttr(p.name)}</option>`).join('');
+  }
+
+  async function loadPurchases(){
+    const body=document.getElementById('purchasesBody'), msg=document.getElementById('purchasesMsg'); body.innerHTML='';
+    const {data,error}=await client.from('inventory_purchases').select('*').order('purchase_date',{ascending:false}).order('created_at',{ascending:false}).limit(50);
+    if(error){showMsg(msg,error.message,'error');return;}
+    if(!(data||[]).length){body.innerHTML='<tr><td colspan="9" style="color:var(--ink-soft);">Aún no hay compras registradas.</td></tr>';return;}
+    (data||[]).forEach(r=>{
+      const total=Number(r.merchandise_cost||0)+Number(r.logistics_cost||0);
+      const state=r.status==='received'?'Recibida':r.status==='cancelled'?'Cancelada':'En camino';
+      const badge=r.status==='received'?'badge-paid':r.status==='cancelled'?'badge-cancelled':'badge-pending';
+      const type=r.purchase_type==='new_drop'?'Nuevo drop':'Reposición';
+      const action=r.status==='ordered'?`<div class="actions-cell"><button class="action-confirm" data-buy-action="receive" data-id="${r.id}" data-name="${escapeAttr(r.product_name)}" data-qty="${r.quantity}">Recibir</button><button class="danger-ghost" data-buy-action="cancel" data-id="${r.id}" data-name="${escapeAttr(r.product_name)}">Cancelar</button></div>`:'';
+      const sizes=r.status==='received'?`<div class="helper-text">S ${r.qty_s} · M ${r.qty_m} · L ${r.qty_l} · XL ${r.qty_xl}</div>`:'';
+      const tr=document.createElement('tr'); tr.innerHTML=`<td><strong>${escapeAttr(r.product_name)}</strong>${sizes}</td><td>${type}</td><td>${r.quantity}</td><td>${moneyFmt(r.merchandise_cost)}</td><td>${moneyFmt(r.logistics_cost)}</td><td><strong>${moneyFmt(total)}</strong></td><td>${new Date(r.purchase_date+'T12:00:00').toLocaleDateString('es-PA')}</td><td><span class="badge ${badge}">${state}</span></td><td>${action}</td>`; body.appendChild(tr);
+    });
+  }
+
+  document.getElementById('purchaseType').addEventListener('change',loadPurchaseOptions);
+  document.getElementById('registerPurchaseBtn').addEventListener('click',async()=>{
+    const msg=document.getElementById('purchasesMsg'), btn=document.getElementById('registerPurchaseBtn'), sel=document.getElementById('purchaseProductSelect'), opt=sel.options[sel.selectedIndex];
+    const qty=parseInt(document.getElementById('purchaseQty').value,10)||0, merchandise=parseFloat(document.getElementById('purchaseMerchandiseCost').value), logistics=parseFloat(document.getElementById('purchaseLogisticsCost').value||'0'), date=document.getElementById('purchaseDate').value;
+    if(!sel.value||!opt){showMsg(msg,'Selecciona un producto.','error');return;} if(qty<=0){showMsg(msg,'Cantidad inválida.','error');return;} if(isNaN(merchandise)||merchandise<=0){showMsg(msg,'Indica el costo de mercancía.','error');return;} if(!date){showMsg(msg,'Selecciona la fecha.','error');return;}
+    btn.disabled=true; const {error}=await client.rpc('create_inventory_purchase',{p_purchase_type:document.getElementById('purchaseType').value,p_product_slug:sel.value,p_product_name:opt.dataset.name||opt.textContent,p_quantity:qty,p_merchandise_cost:merchandise,p_logistics_cost:logistics,p_purchase_date:date}); btn.disabled=false;
+    if(error){showMsg(msg,error.message,'error');return;} document.getElementById('purchaseQty').value=1; document.getElementById('purchaseMerchandiseCost').value=''; document.getElementById('purchaseLogisticsCost').value=0; showMsg(msg,'Compra registrada. El stock no cambia hasta que la recibas.','ok'); loadPurchases();
+  });
+
+  document.getElementById('purchasesBody').addEventListener('click',async(e)=>{
+    const b=e.target.closest('[data-buy-action]'); if(!b)return; const msg=document.getElementById('purchasesMsg');
+    if(b.dataset.buyAction==='cancel'){if(!confirm(`¿Cancelar la compra de "${b.dataset.name}"?`))return; const {error}=await client.rpc('cancel_inventory_purchase',{p_purchase_id:b.dataset.id}); if(error){showMsg(msg,error.message,'error');return;} showMsg(msg,'Compra cancelada. El stock no cambió.','ok'); loadPurchases(); return;}
+    const expected=Number(b.dataset.qty||0); const vals={}; for(const size of ['S','M','L','XL']){const raw=prompt(`Recibir ${b.dataset.name}: unidades talla ${size}`, '0'); if(raw===null)return; vals[size]=Math.max(0,parseInt(raw,10)||0);} const sum=vals.S+vals.M+vals.L+vals.XL; if(sum!==expected){showMsg(msg,`Las tallas suman ${sum}; deben sumar ${expected}.`,'error');return;}
+    const {data,error}=await client.rpc('receive_inventory_purchase',{p_purchase_id:b.dataset.id,p_s:vals.S,p_m:vals.M,p_l:vals.L,p_xl:vals.XL}); if(error){showMsg(msg,error.message,'error');return;} const row=Array.isArray(data)?data[0]:data; showMsg(msg,row?.purchase_type==='new_drop'?'Compra recibida. Quedó cargada en Próximos Drops sin publicarse.':'Compra recibida. El stock fue actualizado.','ok'); await loadPurchases(); await loadUpcoming(); await loadInventory(); await loadPurchaseOptions();
+  });
+
+  const purchaseDateEl=document.getElementById('purchaseDate'); if(purchaseDateEl&&!purchaseDateEl.value)purchaseDateEl.value=new Date().toISOString().slice(0,10);
 
   // ---- Próximos drops: preparar precio/tallas y publicar al catálogo ----
   // Estos slugs deben coincidir EXACTO con los data-product de las 7
