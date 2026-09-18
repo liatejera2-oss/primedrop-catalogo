@@ -1,0 +1,18 @@
+te}); btn.disabled=false;
+    if(error){showMsg(msg,error.message,'error');return;} document.getElementById('purchaseQty').value=1; document.getElementById('purchaseMerchandiseCost').value=''; document.getElementById('purchaseLogisticsCost').value=0; showMsg(msg,'Compra registrada. El stock no cambia hasta que la recibas.','ok'); loadPurchases();
+  });
+
+  document.getElementById('purchasesBody').addEventListener('click',async(e)=>{
+    const b=e.target.closest('[data-buy-action]'); if(!b)return; const msg=document.getElementById('purchasesMsg');
+    if(b.dataset.buyAction==='cancel'){if(!confirm(`¿Cancelar la compra de "${b.dataset.name}"?`))return; const {error}=await client.rpc('cancel_inventory_purchase',{p_purchase_id:b.dataset.id}); if(error){showMsg(msg,error.message,'error');return;} showMsg(msg,'Compra cancelada. El stock no cambió.','ok'); loadPurchases(); return;}
+    const expected=Number(b.dataset.qty||0); const vals={}; for(const size of ['S','M','L','XL']){const raw=prompt(`Recibir ${b.dataset.name}: unidades talla ${size}`, '0'); if(raw===null)return; vals[size]=Math.max(0,parseInt(raw,10)||0);} const sum=vals.S+vals.M+vals.L+vals.XL; if(sum!==expected){showMsg(msg,`Las tallas suman ${sum}; deben sumar ${expected}.`,'error');return;}
+    const {data,error}=await client.rpc('receive_inventory_purchase',{p_purchase_id:b.dataset.id,p_s:vals.S,p_m:vals.M,p_l:vals.L,p_xl:vals.XL}); if(error){showMsg(msg,error.message,'error');return;} const row=Array.isArray(data)?data[0]:data; showMsg(msg,row?.purchase_type==='new_drop'?'Compra recibida. Quedó cargada en Próximos Drops sin publicarse.':'Compra recibida. El stock fue actualizado.','ok'); await loadPurchases(); await loadUpcoming(); await loadInventory(); await loadPurchaseOptions();
+  });
+
+  const purchaseDateEl=document.getElementById('purchaseDate'); if(purchaseDateEl&&!purchaseDateEl.value)purchaseDateEl.value=new Date().toISOString().slice(0,10);
+
+'''
+assert js_anchor in s
+s=s.replace(js_anchor,js+js_anchor,1)
+p.write_text(s,encoding='utf-8')
+print('Point 18 simple purchases patch applied')
