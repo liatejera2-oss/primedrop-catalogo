@@ -1,0 +1,39 @@
+name: PRIME DROP Point 17 currency
+on:
+  push:
+    branches: [intervention/17-internal-baseline]
+    paths: ['.github/scripts/point17_currency.py', '.github/workflows/run-point17-currency.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: intervention/17-internal-baseline
+      - name: Patch internal USD display
+        run: python .github/scripts/point17_currency.py
+      - name: Validate
+        run: |
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re, tempfile, subprocess
+          s=Path('panel-privado.html').read_text(encoding='utf-8')
+          for token in ['USD $','Precio (USD)','Total (USD)','Cobrado (USD)','Saldo pendiente (USD)','currency-field']:
+              assert token in s, token
+          clean=re.sub(r'<!--.*?-->', '', s, flags=re.S)
+          scripts=re.findall(r'<script>(.*?)</script>', clean, flags=re.S)
+          js='\n'.join(scripts)
+          with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+              f.write(js); path=f.name
+          subprocess.run(['node','--check',path], check=True)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add panel-privado.html
+          git commit -m "Standardize internal money display as USD"
+          git push origin HEAD:intervention/17-internal-baseline
