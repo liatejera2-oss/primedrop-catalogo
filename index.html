@@ -27,7 +27,7 @@
   header { position: sticky; top: 0; z-index: 50; background: rgba(254,254,254,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: var(--header-text); border-bottom: 1px solid var(--line); }
   .header-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; min-height: 68px; }
   .brand { display: flex; align-items: center; gap: 12px; }
-  .brand img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+  .brand img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); flex: 0 0 48px; }
   .brand-word { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
   .header-links { display: flex; align-items: center; gap: 24px; }
   .catalog-link, .drops-link { position: relative; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none; padding: 8px 2px; transition: color .2s ease, background .2s ease; }
@@ -42,6 +42,7 @@
   .menu-toggle[aria-expanded="true"] .menu-toggle-icon span:last-child { transform: translateY(-5.25px) rotate(-45deg); }
   @media (max-width: 768px) {
     .header-inner { position: relative; flex-wrap: nowrap; }
+    .brand img { width: 40px; height: 40px; flex-basis: 40px; }
     .brand-word { font-size: 14.5px; }
     .menu-toggle { display: inline-flex; margin-left: auto; }
     .header-links { position: absolute; top: calc(100% + 1px); left: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 12px; background: var(--card-bg); border: 1px solid var(--line); border-radius: 14px;  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-8px); transition: opacity .18s ease, transform .18s ease, visibility .18s ease; }
@@ -327,7 +328,7 @@
 <header>
   <div class="header-inner">
     <div class="brand">
-      <img src="assets/media/9336c0169971d6ae.jpg" alt="Prime Drop logo" width="38" height="38" decoding="async">
+      <img src="assets/media/9336c0169971d6ae.jpg" alt="Prime Drop logo" width="48" height="48" decoding="async">
       <span class="brand-word">PRIME DROP</span>
     </div>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Abrir menú de navegación">
