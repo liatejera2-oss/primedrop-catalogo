@@ -153,6 +153,7 @@
   .upcoming-head { align-items: center; }
   .upcoming-instagram-link { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--radius-pill); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; background: #fff; white-space: nowrap; transition: background .2s ease, border-color .2s ease; }
   .upcoming-instagram-link:hover, .upcoming-instagram-link:focus-visible { background: var(--bg-alt); border-color: #D5D5D8; }
+  .upcoming-empty { margin: 0; padding: 8px 0 var(--space-4); font-size: 15px; color: var(--ink-soft); }
   .upcoming-section { max-width: 1200px; margin: 0 auto; padding: 0 24px var(--space-7); }
   .upcoming-grid { display: flex; gap: 20px; overflow-x: auto; max-width: 100%; padding: 2px 2px 14px; scroll-snap-type: x proximity; scroll-padding-left: 2px; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #D5D5D8 transparent; }
   .upcoming-grid .upcoming-card { flex: 0 0 clamp(280px, 31%, 354px); scroll-snap-align: start; }
@@ -1306,10 +1307,23 @@
       });
 
       const upcomingSection = document.getElementById('upcomingSection');
-      const upcomingSectionHead = document.getElementById('upcomingSectionHead');
       if (upcomingSection && !upcomingSection.querySelector('.upcoming-card')) {
-        upcomingSection.style.display = 'none';
-        if (upcomingSectionHead) upcomingSectionHead.style.display = 'none';
+        showUpcomingEmptyState();
+      }
+    }
+
+    // Cuando ya no queda ninguna tarjeta en "Próximos Drops", la sección no
+    // se oculta: se reemplaza el carrusel vacío por un mensaje corto.
+    function showUpcomingEmptyState() {
+      const upcomingSection = document.getElementById('upcomingSection');
+      if (!upcomingSection) return;
+      const grid = upcomingSection.querySelector('.upcoming-grid');
+      if (grid) grid.style.display = 'none';
+      if (!upcomingSection.querySelector('.upcoming-empty')) {
+        const msg = document.createElement('p');
+        msg.className = 'upcoming-empty';
+        msg.textContent = 'Pronto nuevas piezas.';
+        upcomingSection.appendChild(msg);
       }
     }
 
@@ -1340,13 +1354,10 @@
 
       if (!moved) return;
 
-      // Si ya no queda ninguna tarjeta en "Próximos drops", oculta toda
-      // la sección (encabezado incluido) en vez de dejarla vacía.
+      // Si ya no queda ninguna tarjeta en "Próximos drops", muestra el
+      // mensaje "Pronto nuevas piezas" en vez de dejar la sección vacía.
       const remaining = upcomingSection.querySelectorAll('.upcoming-card').length;
-      if (remaining === 0) {
-        upcomingSection.style.display = 'none';
-        if (upcomingSectionHead) upcomingSectionHead.style.display = 'none';
-      }
+      if (remaining === 0) showUpcomingEmptyState();
 
       if (window.__pdRefreshFilterCounts) window.__pdRefreshFilterCounts();
     }
