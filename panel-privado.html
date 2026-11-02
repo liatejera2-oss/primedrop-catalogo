@@ -45,6 +45,7 @@
   .order-contact { display: block; margin-top: 4px; font-size: 12px; line-height: 1.6; }
   .order-contact a { color: var(--accent); font-weight: 600; text-decoration: none; margin-right: 6px; }
   .order-contact a:hover { text-decoration: underline; }
+  .order-items { display: block; margin-top: 6px; font-size: 12px; line-height: 1.5; color: var(--ink-soft); font-weight: 500; }
   .badge-deposit { background: #FDEFE0; color: #9A5B00; }
   .msg { font-size: 13px; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; }
   .msg-error { background: #FBEAEA; color: var(--accent); }
@@ -985,6 +986,29 @@
     return parts.length ? `<span class="order-contact">${parts.join(' ')}</span>` : '';
   }
 
+  // Descripción interna de lo que pidió el cliente (solo para el panel).
+  function itemsHtml(items) {
+    if (!items || !items.length) return '';
+    const lines = items.map(it => {
+      const pv = it.product_variants || {};
+      const name = (pv.products && pv.products.name) || 'Producto';
+      const color = it.product_color_variants && it.product_color_variants.color;
+      return `${escapeAttr(name)}${color ? ' · ' + escapeAttr(color) : ''} · talla ${escapeAttr(pv.size || '—')} × ${it.quantity}`;
+    });
+    return `<span class="order-items">${lines.join('<br>')}</span>`;
+  }
+
+  async function fetchItemsByOrder(ids) {
+    const map = {};
+    if (!ids.length) return map;
+    const { data } = await client
+      .from('order_items')
+      .select('order_id, quantity, product_variants(size, products(name)), product_color_variants(color, size)')
+      .in('order_id', ids);
+    (data || []).forEach(it => { (map[it.order_id] = map[it.order_id] || []).push(it); });
+    return map;
+  }
+
   async function loadOrders(status) {
     const ordersMsg = document.getElementById('ordersMsg');
     const tbody = document.getElementById('ordersBody');
@@ -999,10 +1023,11 @@
     if (error) { showMsg(ordersMsg, 'Error cargando solicitudes: ' + error.message, 'error'); return; }
     if (!data.length) { tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink-soft);">Sin solicitudes en este estado.</td></tr>'; return; }
 
-    data.forEach(o => tbody.appendChild(orderRow(o)));
+    const itemsMap = await fetchItemsByOrder(data.map(o => o.id));
+    data.forEach(o => tbody.appendChild(orderRow(o, itemsMap[o.id])));
   }
 
-  function orderRow(o) {
+  function orderRow(o, items) {
     const tr = document.createElement('tr');
     const created = new Date(o.created_at).toLocaleString('es-PA');
     let actions = '';
@@ -1016,7 +1041,7 @@
     }
     actions += `<button class="action-delete" data-action="delete" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}" title="Borra solo el registro; no modifica inventario">Borrar</button>`;
     tr.innerHTML = `
-      <td>${o.order_number}${contactHtml(o)}</td>
+      <td>${o.order_number}${contactHtml(o)}${itemsHtml(items)}</td>
       <td>${moneyFmt(o.total_reference)}</td>
       <td>${paymentProgressHtml(o)}</td>
       <td>${paymentBadgeFor(o.payment_mode)}</td>
