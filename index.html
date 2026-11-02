@@ -233,6 +233,11 @@
   #purchaseQty { width: 60px; height: 40px; text-align: center; border: 1px solid var(--line); border-radius: 6px; font-size: 15px; font-family: 'Inter', sans-serif; -moz-appearance: textfield; }
   #purchaseQty::-webkit-outer-spin-button, #purchaseQty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .purchase-stock-note { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
+  .purchase-ig-input { display: flex; align-items: center; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; }
+  .purchase-ig-input:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .purchase-ig-input > span { padding-left: 14px; color: var(--ink-soft); font-size: 16px; }
+  .purchase-ig-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; padding: 12px 14px 12px 4px; min-height: 44px; }
+  .purchase-ig-input input[aria-invalid="true"] { color: var(--accent); }
   .payment-mode-row { display: flex; gap: 8px; }
   .payment-mode-btn { flex: 1; font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600; padding: 10px 8px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: all .15s ease; line-height: 1.3; }
   .payment-mode-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
@@ -393,7 +398,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>Ferrari</h3>
-            <p class="price">$45.00</p>
+            <p class="price" data-price-for="ferrari">$40.00</p>
             <div class="size-row" data-product="ferrari" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="ferrari" aria-label="Comprar Ferrari por Instagram">Comprar por Instagram →</button>
           </div>
@@ -416,7 +421,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>McLaren</h3>
-            <p class="price">$50.00</p>
+            <p class="price" data-price-for="mclaren">$45.00</p>
             <div class="size-row" data-product="mclaren" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="mclaren" aria-label="Comprar McLaren por Instagram">Comprar por Instagram →</button>
           </div>
@@ -439,7 +444,7 @@
               <span class="team-name">Polo</span>
             </div>
             <h3>Red Bull</h3>
-            <p class="price">$35.00</p>
+            <p class="price" data-price-for="redbull-polo">$35.00</p>
             <div class="size-row" data-product="redbull-polo" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="redbull-polo" aria-label="Comprar Red Bull por Instagram">Comprar por Instagram →</button>
           </div>
@@ -462,7 +467,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>Red Bull 2026-2027</h3>
-            <p class="price">$55.00</p>
+            <p class="price" data-price-for="redbull-2627">$50.00</p>
             <div class="size-row" data-product="redbull-2627" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="redbull-2627" aria-label="Comprar Red Bull 2026-2027 por Instagram">Comprar por Instagram →</button>
           </div>
@@ -485,7 +490,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>Aston Martin</h3>
-            <p class="price">$48.00</p>
+            <p class="price" data-price-for="astonmartin">$45.00</p>
             <div class="size-row" data-product="astonmartin" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="astonmartin" aria-label="Comprar Aston Martin por Instagram">Comprar por Instagram →</button>
           </div>
@@ -508,7 +513,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>Williams</h3>
-            <p class="price">$50.00</p>
+            <p class="price" data-price-for="williams">$50.00</p>
             <div class="size-row" data-product="williams" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="williams" aria-label="Comprar Williams por Instagram">Comprar por Instagram →</button>
           </div>
@@ -531,7 +536,7 @@
               <span class="team-name">Outerwear</span>
             </div>
             <h3>Adidas — Chinese New Year</h3>
-            <p class="price">$95.00</p>
+            <p class="price" data-price-for="adidas-cny">$85.00</p>
             <div class="size-row" data-product="adidas-cny" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="adidas-cny" aria-label="Comprar Adidas Chinese New Year por Instagram">Comprar por Instagram →</button>
           </div>
@@ -554,7 +559,7 @@
               <span class="team-name">Racing</span>
             </div>
             <h3>Mercedes</h3>
-            <p class="price">$50.00</p>
+            <p class="price" data-price-for="mercedes">$45.00</p>
             <div class="size-row" data-product="mercedes" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="mercedes" aria-label="Comprar Mercedes por Instagram">Comprar por Instagram →</button>
           </div>
@@ -577,7 +582,7 @@
               <span class="team-name">Football jersey</span>
             </div>
             <h3>Real Madrid — Jersey Fan Edition</h3>
-            <p class="price">$45.00</p>
+            <p class="price" data-price-for="rm-fanedition">$45.00</p>
             <div class="size-row" data-product="rm-fanedition" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="rm-fanedition" aria-label="Comprar Real Madrid Fan Edition por Instagram">Comprar por Instagram →</button>
           </div>
@@ -600,7 +605,7 @@
               <span class="team-name">Football jersey</span>
             </div>
             <h3>FC Barcelona — Jersey Fan Edition</h3>
-            <p class="price">$45.00</p>
+            <p class="price" data-price-for="barca-fanedition">$40.00</p>
             <div class="size-row" data-product="barca-fanedition" role="group" aria-label="Tallas disponibles" data-dynamic="true"><span class="size-loading">Cargando tallas…</span></div>
             <button type="button" class="ig-btn" data-open-purchase data-product="barca-fanedition" aria-label="Comprar Barcelona Fan Edition por Instagram">Comprar por Instagram →</button>
           </div>
@@ -847,6 +852,15 @@
           <button type="button" class="payment-mode-btn payment-mode-btn-deposit" data-mode="deposit" aria-pressed="false">Abono</button>
         </div>
         <p class="purchase-deposit-note" id="purchaseDepositNote" hidden></p>
+      </div>
+
+      <div class="purchase-field">
+        <label for="purchaseInstagram">Tu usuario de Instagram</label>
+        <div class="purchase-ig-input">
+          <span aria-hidden="true">@</span>
+          <input type="text" id="purchaseInstagram" maxlength="60" placeholder="tuusuario" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="purchaseInstagramHelp">
+        </div>
+        <p class="purchase-stock-note" id="purchaseInstagramHelp">Solo lo usamos para escribirte sobre tu pedido.</p>
       </div>
 
       <p class="purchase-total" id="purchaseTotalLabel">Total de referencia: <strong id="purchaseTotal">$0.00</strong></p>
@@ -1203,6 +1217,16 @@
 
     function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
 
+    // Acepta "@usuario", "usuario" o un enlace de perfil; devuelve el usuario en
+    // minúsculas o null si no cumple las reglas de Instagram (1-30: a-z 0-9 . _).
+    function normalizeInstagramHandle(raw) {
+      let h = String(raw || '').trim();
+      const m = h.match(/instagram\.com\/([^/?#\s]+)/i);
+      if (m) h = m[1];
+      h = h.replace(/^@+/, '').replace(/\/+$/, '').toLowerCase();
+      return /^[a-z0-9._]{1,30}$/.test(h) ? h : null;
+    }
+
     function totalStock(product) {
       if (product.uses_color_variants && product.color_stock_mode !== 'shared_size' && product.colors && product.colors.length) {
         return product.colors.reduce((sum, color) => sum + SIZE_ORDER.reduce((inner, size) => {
@@ -1470,6 +1494,8 @@
     const messageBoxEl = document.getElementById('purchaseMessageBox');
     const copyAgainBtn = document.getElementById('purchaseCopyAgain');
     const closeSuccessBtn = document.getElementById('purchaseCloseSuccess');
+    const igInput = document.getElementById('purchaseInstagram');
+    igInput.addEventListener('input', () => igInput.removeAttribute('aria-invalid'));
 
     let currentSlug = null;
     let currentColor = null;
@@ -1571,6 +1597,7 @@
       currentColor = null;
       currentSize = null;
       errorEl.hidden = true;
+      igInput.removeAttribute('aria-invalid');
       stepForm.hidden = false;
       stepSuccess.hidden = true;
 
@@ -1727,6 +1754,15 @@
         return;
       }
 
+      const igHandle = normalizeInstagramHandle(igInput.value);
+      if (!igHandle) {
+        errorEl.textContent = 'Escribe tu usuario de Instagram (letras, números, puntos o guion bajo) para poder escribirte.';
+        errorEl.hidden = false;
+        igInput.setAttribute('aria-invalid', 'true');
+        igInput.focus();
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.setAttribute('aria-busy', 'true');
       submitBtn.textContent = 'Preparando mensaje…';
@@ -1775,6 +1811,19 @@
         return;
       }
 
+      // Guarda el usuario de Instagram junto a la solicitud para poder escribirle
+      // de vuelta. Si falla (p. ej. la función aún no existe), no bloquea el flujo:
+      // el usuario también va dentro del mensaje.
+      try {
+        const { error: contactErr } = await client.rpc('set_order_contact', {
+          p_order_number: row.order_number,
+          p_instagram: igHandle
+        });
+        if (contactErr) console.warn('[Prime Drop] No se pudo guardar el usuario de Instagram:', contactErr.message);
+      } catch (e) {
+        console.warn('[Prime Drop] No se pudo guardar el usuario de Instagram:', e);
+      }
+
       const paymentLine = row.payment_mode === 'deposit'
         ? `Forma de pago: Abono (50%) · Pagas ahora: ${moneyFmt(row.amount_due_now)} · Saldo contra entrega: ${moneyFmt(row.balance_due)}`
         : 'Forma de pago: Pago completo';
@@ -1796,7 +1845,9 @@
         unitPriceLine +
         `Total: ${moneyFmt(row.total_reference)}\n` +
         `${availabilityLine}\n` +
-        `${paymentLine}\n\n` +
+        `${paymentLine}\n` +
+        `Usuario de Instagram: @${igHandle}\n` +
+        '\n' +
         '¿Me confirman los datos de pago y entrega para completar la compra?';
 
       lastMessage = message;

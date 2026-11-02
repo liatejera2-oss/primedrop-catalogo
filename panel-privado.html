@@ -42,6 +42,9 @@
   .badge-paid { background: #DFF3E3; color: #1E7A34; }
   .badge-cancelled { background: #F1F1F1; color: var(--ink-soft); }
   .badge-full { background: #EAF1FB; color: #1B4C8C; }
+  .order-contact { display: block; margin-top: 4px; font-size: 12px; line-height: 1.6; }
+  .order-contact a { color: var(--accent); font-weight: 600; text-decoration: none; margin-right: 6px; }
+  .order-contact a:hover { text-decoration: underline; }
   .badge-deposit { background: #FDEFE0; color: #9A5B00; }
   .msg { font-size: 13px; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; }
   .msg-error { background: #FBEAEA; color: var(--accent); }
@@ -964,17 +967,34 @@
     document.getElementById('summaryPendingCount').textContent = `${pending.length} solicitud${pending.length === 1 ? '' : 'es'} pendiente${pending.length === 1 ? '' : 's'}.`;
   }
 
+  // Columna nueva (usuario de Instagram). Si el SQL
+  // aún no se ha corrido en Supabase, se reintenta sin ellas para no romper la lista.
+  const CONTACT_COLS = ', customer_instagram';
+  async function queryOrders(baseCols, build) {
+    let res = await build(baseCols + CONTACT_COLS);
+    if (res.error && /customer_instagram/.test(res.error.message || '')) res = await build(baseCols);
+    return res;
+  }
+
+  function contactHtml(o) {
+    const parts = [];
+    if (o.customer_instagram) {
+      const h = String(o.customer_instagram);
+      parts.push(`<a href="https://instagram.com/${encodeURIComponent(h)}" target="_blank" rel="noopener noreferrer">@${escapeAttr(h)} ↗</a>`);
+    }
+    return parts.length ? `<span class="order-contact">${parts.join(' ')}</span>` : '';
+  }
+
   async function loadOrders(status) {
     const ordersMsg = document.getElementById('ordersMsg');
     const tbody = document.getElementById('ordersBody');
     tbody.innerHTML = '';
     showMsg(ordersMsg, '', null);
 
-    const { data, error } = await client
-      .from('orders')
-      .select('id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at')
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+    const { data, error } = await queryOrders(
+      'id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at',
+      cols => client.from('orders').select(cols).eq('status', status).order('created_at', { ascending: false })
+    );
 
     if (error) { showMsg(ordersMsg, 'Error cargando solicitudes: ' + error.message, 'error'); return; }
     if (!data.length) { tbody.innerHTML = '<tr><td colspan="8" style="color:var(--ink-soft);">Sin solicitudes en este estado.</td></tr>'; return; }
@@ -996,7 +1016,7 @@
     }
     actions += `<button class="action-delete" data-action="delete" data-id="${o.id}" data-code="${o.order_number}" data-status="${o.status}" title="Borra solo el registro; no modifica inventario">Borrar</button>`;
     tr.innerHTML = `
-      <td>${o.order_number}</td>
+      <td>${o.order_number}${contactHtml(o)}</td>
       <td>${moneyFmt(o.total_reference)}</td>
       <td>${paymentProgressHtml(o)}</td>
       <td>${paymentBadgeFor(o.payment_mode)}</td>
@@ -1063,11 +1083,10 @@ Esto elimina el registro y sus datos de análisis, pero NO modifica el inventari
     resultEl.innerHTML = '';
     if (!code) return;
 
-    const { data: order, error } = await client
-      .from('orders')
-      .select('id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at')
-      .eq('order_number', code)
-      .maybeSingle();
+    const { data: order, error } = await queryOrders(
+      'id, order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at',
+      cols => client.from('orders').select(cols).eq('order_number', code).maybeSingle()
+    );
 
     if (error || !order) { resultEl.innerHTML = '<p class="msg msg-error">No se encontró esa solicitud.</p>'; return; }
 
@@ -1100,7 +1119,7 @@ Esto elimina el registro y sus datos de análisis, pero NO modifica el inventari
     }
 
     resultEl.innerHTML = `
-      <p><strong>${order.order_number}</strong> ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)} ${fulfillmentBadgeFor(order.fulfillment_type)}</p>
+      <p><strong>${order.order_number}</strong>${contactHtml(order)} ${badgeFor(order.status)} ${paymentBadgeFor(order.payment_mode)} ${fulfillmentBadgeFor(order.fulfillment_type)}</p>
       <p style="margin:6px 0;">${itemsHtml}</p>
       <p>Total: ${moneyFmt(order.total_reference)} · Cobrado: ${moneyFmt(order.amount_paid || 0)} · Saldo: ${moneyFmt(Math.max(0, Number(order.total_reference) - Number(order.amount_paid || 0)))}</p>
       ${order.reserved_at ? `<p style="margin-top:4px;color:var(--ink-soft);">Reserva confirmada: ${new Date(order.reserved_at).toLocaleString('es-PA')}</p>` : ''}
@@ -1935,15 +1954,15 @@ El inventario no se modificará.`)) return;
     const toVal = document.getElementById('exportTo').value;
     showMsg(exportMsg, '', null);
 
-    let query = client
-      .from('orders')
-      .select('order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at')
-      .order('created_at', { ascending: true });
-
-    if (fromVal) query = query.gte('created_at', fromVal + 'T00:00:00');
-    if (toVal) query = query.lte('created_at', toVal + 'T23:59:59');
-
-    const { data, error } = await query;
+    const { data, error } = await queryOrders(
+      'order_number, status, total_reference, amount_paid, payment_mode, fulfillment_type, created_at, reserved_at, paid_at, cancelled_at',
+      cols => {
+        let q = client.from('orders').select(cols).order('created_at', { ascending: true });
+        if (fromVal) q = q.gte('created_at', fromVal + 'T00:00:00');
+        if (toVal) q = q.lte('created_at', toVal + 'T23:59:59');
+        return q;
+      }
+    );
     if (error) { showMsg(exportMsg, 'Error generando el archivo: ' + error.message, 'error'); return; }
     if (!data.length) { showMsg(exportMsg, 'No hay solicitudes en ese rango de fechas.', 'error'); return; }
 
@@ -1951,7 +1970,7 @@ El inventario no se modificará.`)) return;
     const paymentLabel = { full: 'Pago completo', deposit: 'Abono 50%' };
     const fulfillmentLabel = { stock: 'Stock', backorder: 'Por pedido' };
 
-    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total (USD)', 'Cobrado (USD)', 'Saldo pendiente (USD)', 'Fecha de creación', 'Fecha de reserva', 'Fecha de pago', 'Fecha de cancelación'];
+    const headers = ['Código', 'Estado', 'Forma de pago', 'Tipo', 'Total (USD)', 'Cobrado (USD)', 'Saldo pendiente (USD)', 'Fecha de creación', 'Fecha de reserva', 'Fecha de pago', 'Fecha de cancelación', 'Instagram'];
     const rows = data.map(o => {
       const total = Number(o.total_reference);
       const paid = Number(o.amount_paid || 0);
@@ -1967,7 +1986,8 @@ El inventario no se modificará.`)) return;
         new Date(o.created_at).toLocaleString('es-PA'),
         o.reserved_at ? new Date(o.reserved_at).toLocaleString('es-PA') : '',
         o.paid_at ? new Date(o.paid_at).toLocaleString('es-PA') : '',
-        o.cancelled_at ? new Date(o.cancelled_at).toLocaleString('es-PA') : ''
+        o.cancelled_at ? new Date(o.cancelled_at).toLocaleString('es-PA') : '',
+        o.customer_instagram ? '@' + o.customer_instagram : ''
       ];
     });
 
