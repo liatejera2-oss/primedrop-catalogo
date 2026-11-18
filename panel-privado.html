@@ -1615,8 +1615,8 @@ El inventario no se modificará.`)) return;
     document.getElementById('variantColorName').value = '';
     const shared = row?.stock_mode === 'shared_size';
     showMsg(msgEl, shared
-      ? `Color "${row?.color || color}" guardado. Usa el stock general por talla; no se duplicaron unidades.`
-      : `Color "${row?.color || color}" guardado. Si ya existía, se actualizó en lugar de crear un duplicado.`, 'ok');
+      ? `Color "${row?.saved_color || color}" guardado. Usa el stock general por talla; no se duplicaron unidades.`
+      : `Color "${row?.saved_color || color}" guardado. Si ya existía, se actualizó en lugar de crear un duplicado.`, 'ok');
     await loadColorVariants();
     await loadInventory();
   });
