@@ -141,8 +141,9 @@
   .card-info h3 { font-size: 18px; font-weight: 600; text-transform: none; letter-spacing: -0.018em; line-height: 1.25; margin-bottom: 10px; font-family: 'Inter', sans-serif; color: var(--ink); min-height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .price { font-size: 17px; font-weight: 700; color: var(--ink); font-family: 'Inter', sans-serif; letter-spacing: -0.015em; line-height: 1.25; }
   .size-row { display: flex; gap: 7px; margin: 16px 0 14px; flex-wrap: wrap; min-height: 32px; align-items: center; }
-  .size-chip { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; min-width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: default; transition: border-color .15s ease; }
-  .size-chip.backorder { color: var(--ink-soft); border-style: dashed; }
+  .size-chip { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; min-width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: default; transition: border-color .15s ease; position: relative; overflow: hidden; }
+  .size-chip.backorder { color: var(--ink-soft); }
+  .size-chip.backorder::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top right, transparent calc(50% - 0.75px), var(--ink-soft) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px)); }
   .size-caption { font-size: 11px; color: var(--ink-soft); margin: -7px 0 14px; line-height: 1.35; }
   .soon-label { font-size: 12.5px; color: var(--ink-soft); font-weight: 400; font-family: 'Inter', sans-serif; letter-spacing: 0; text-transform: none; margin-top: 2px; }
   .ig-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 46px; background: var(--ink); color: #fff; text-decoration: none; font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600; border-radius: var(--radius-sm); transition: background .2s ease, transform .2s ease; margin-top: auto; padding: 0 16px; }
@@ -222,10 +223,10 @@
   .purchase-color-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
   .purchase-color-btn[aria-pressed="true"] { border-color: transparent; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
   .purchase-color-btn[aria-pressed="true"]::after { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 17px; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
-  .purchase-size-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-width: 44px; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .purchase-size-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; min-width: 44px; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease; position: relative; overflow: hidden; }
   .purchase-size-btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
-  .purchase-size-btn.backorder { border-style: dashed; }
-  .purchase-size-btn.backorder[aria-pressed="true"] { border-style: solid; }
+  .purchase-size-btn.backorder::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top right, transparent calc(50% - 0.75px), var(--ink-soft) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px)); }
+  .purchase-size-btn.backorder[aria-pressed="true"]::after { background: linear-gradient(to top right, transparent calc(50% - 0.75px), rgba(255,255,255,.65) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px)); }
   .purchase-size-btn:disabled { color: var(--ink-soft); border-color: var(--line); text-decoration: line-through; opacity: .45; cursor: not-allowed; }
   .purchase-qty-row { display: flex; align-items: center; gap: 10px; }
   .qty-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; font-size: 18px; cursor: pointer; color: var(--ink); transition: border-color .15s ease; }
