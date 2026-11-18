@@ -470,7 +470,7 @@
         <div class="table-scroll inventory-scroll">
         <table>
           <thead>
-            <tr><th>Producto</th><th>Precio (USD)</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th>Acciones</th></tr>
+            <tr><th>Producto</th><th>Precio (USD)</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th><th>Estado</th><th>Catálogo</th><th>Acciones</th></tr>
           </thead>
           <tbody id="inventoryBody"></tbody>
         </table>
@@ -492,6 +492,7 @@
               <label for="variantColorName">Color</label>
               <input type="text" id="variantColorName" placeholder="Ej. Burgundy" style="margin-bottom:0;">
             </div>
+            <div class="color-stock-field"><label>XS</label><input type="number" min="0" id="variantColorXS" value="0" style="width:64px; margin-bottom:0;"></div>
             <div class="color-stock-field"><label>S</label><input type="number" min="0" id="variantColorS" value="0" style="width:64px; margin-bottom:0;"></div>
             <div class="color-stock-field"><label>M</label><input type="number" min="0" id="variantColorM" value="0" style="width:64px; margin-bottom:0;"></div>
             <div class="color-stock-field"><label>L</label><input type="number" min="0" id="variantColorL" value="0" style="width:64px; margin-bottom:0;"></div>
@@ -501,7 +502,7 @@
           <div id="colorStockHint" class="color-mode-note hidden"></div>
           <div class="table-scroll">
             <table>
-              <thead id="colorVariantsHead"><tr><th>Color</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th></tr></thead>
+              <thead id="colorVariantsHead"><tr><th>Color</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th></tr></thead>
               <tbody id="colorVariantsBody"></tbody>
             </table>
           </div>
@@ -662,7 +663,7 @@
   const panel = document.getElementById('panel');
   const loginMsg = document.getElementById('loginMsg');
   const sessionInfo = document.getElementById('sessionInfo');
-  const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+  const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL'];
   let inventoryFilter = 'all';
 
   function showMsg(el, text, type) {
@@ -1578,7 +1579,7 @@ El inventario no se modificará.`)) return;
       return;
     }
 
-    head.innerHTML = '<tr><th>Color</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th></tr>';
+    head.innerHTML = '<tr><th>Color</th><th>XS</th><th>S</th><th>M</th><th>L</th><th>XL</th><th>Total</th></tr>';
     colors.forEach(color => {
       const total = SIZE_ORDER.reduce((sum, size) => sum + (grouped[color][size]?.stock_on_hand || 0), 0);
       const tr = document.createElement('tr');

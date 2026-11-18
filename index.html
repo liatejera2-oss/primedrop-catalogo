@@ -1212,7 +1212,7 @@
     }
 
     const client = window.supabase.createClient(PRIME_DROP_CONFIG.SUPABASE_URL, PRIME_DROP_CONFIG.SUPABASE_ANON_KEY);
-    const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+    const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL'];
     let catalog = {}; // slug -> { id, name, regular_price, preorder_price, sale_mode, variants: {S:{...}, ...} }
 
     function moneyFmt(n) { return '$' + Number(n).toFixed(2); }
